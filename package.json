@@ -1,0 +1,31 @@
+{
+  "name": "cameraderie",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private groups for sharing full-fidelity, zero-data-loss photos and videos.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "dev:api": "pnpm --filter @cameraderie/api dev",
+    "dev:worker": "pnpm --filter @cameraderie/worker dev",
+    "dev:web": "pnpm --filter @cameraderie/web dev",
+    "db:generate": "pnpm --filter @cameraderie/db generate",
+    "db:migrate": "pnpm --filter @cameraderie/db migrate",
+    "format": "prettier --write \"**/*.{ts,js,svelte,json,md}\"",
+    "lint": "prettier --check \"**/*.{ts,js,svelte,json,md}\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.3",
+    "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp", "msgpackr-extract"]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@cameraderie/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.726.0",
+    "@aws-sdk/s3-request-presigner": "^3.726.0",
+    "@cameraderie/db": "workspace:*",
+    "@cameraderie/shared": "workspace:*",
+    "@fastify/cors": "^10.0.2",
+    "better-auth": "^1.1.14",
+    "bullmq": "^5.34.6",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.2.1",
+    "ioredis": "^5.4.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

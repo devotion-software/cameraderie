@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.svelte-kit/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Data & media
+data/
+tmp/
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

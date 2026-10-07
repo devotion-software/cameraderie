@@ -1,0 +1,103 @@
+# Cameraderie — single-box stack for the Hetzner CX23.
+# The API, worker, and web run here; originals + derivatives live in Cloudflare R2.
+# Copy .env.example to .env and fill in R2 + secrets before `docker compose up`.
+
+services:
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-change-me-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-cameraderie}
+      MARIADB_USER: ${MARIADB_USER:-cameraderie}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-cameraderie}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    ports:
+      - '3306:3306'
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    # Enable persistence so queued jobs survive a restart.
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_URL: ${API_URL:-http://localhost:3000}
+      WEB_URL: ${WEB_URL:-http://localhost:5173}
+      API_PORT: 3000
+      DATABASE_URL: mysql://${MARIADB_USER:-cameraderie}:${MARIADB_PASSWORD:-cameraderie}@mariadb:3306/${MARIADB_DATABASE:-cameraderie}
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_PRESIGN_TTL_SECONDS: ${R2_PRESIGN_TTL_SECONDS:-900}
+    ports:
+      - '3000:3000'
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mysql://${MARIADB_USER:-cameraderie}:${MARIADB_PASSWORD:-cameraderie}@mariadb:3306/${MARIADB_DATABASE:-cameraderie}
+      REDIS_URL: redis://redis:6379
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # The browser talks to the API directly, so this must be host-reachable.
+      PUBLIC_API_URL: ${API_URL:-http://localhost:3000}
+      PORT: 5173
+    ports:
+      - '5173:5173'
+
+volumes:
+  mariadb-data:
+  redis-data:

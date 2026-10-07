@@ -1,0 +1,38 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  API_URL: z.string().url().default('http://localhost:3000'),
+  WEB_URL: z.string().url().default('http://localhost:5173'),
+  API_PORT: z.coerce.number().int().positive().default(3000),
+
+  DATABASE_URL: z.string().min(1),
+  BETTER_AUTH_SECRET: z.string().min(16),
+  REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
+
+  R2_ACCOUNT_ID: z.string().min(1),
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_BUCKET: z.string().min(1),
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_PRESIGN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+
+  FREE_TIER_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024 * 1024),
+});
+
+export type Env = z.infer<typeof envSchema> & { R2_ENDPOINT: string };
+
+let cached: Env | null = null;
+
+export function loadEnv(): Env {
+  if (cached) return cached;
+  const parsed = envSchema.safeParse(process.env);
+  if (!parsed.success) {
+    console.error('Invalid environment:', parsed.error.flatten().fieldErrors);
+    throw new Error('Invalid environment configuration');
+  }
+  const endpoint =
+    parsed.data.R2_ENDPOINT ?? `https://${parsed.data.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  cached = { ...parsed.data, R2_ENDPOINT: endpoint };
+  return cached;
+}
