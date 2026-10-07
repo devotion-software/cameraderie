@@ -84,6 +84,19 @@
     !!item &&
       (item.uploaderId === $session.data?.user?.id || group?.myRole === 'owner'),
   );
+
+  let reported = $state(false);
+  async function report() {
+    if (!item) return;
+    const reason = prompt('Why are you reporting this? (sent to a moderator)');
+    if (!reason || !reason.trim()) return;
+    try {
+      await api.post(`/media/${item.id}/report`, { reason: reason.trim() });
+      reported = true;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not submit report';
+    }
+  }
 </script>
 
 {#if error}<p class="error">{error}</p>{/if}
@@ -119,6 +132,11 @@
       {downloading ? 'Preparing…' : 'Download original'}
     </button>
     <span class="spacer"></span>
+    {#if reported}
+      <span class="muted">Reported ✓</span>
+    {:else}
+      <button class="btn ghost" onclick={report}>Report</button>
+    {/if}
     {#if canDelete}
       <button class="btn danger" onclick={remove}>Delete</button>
     {/if}

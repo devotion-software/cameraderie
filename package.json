@@ -4,28 +4,25 @@
   "private": true,
   "description": "Private groups for sharing full-fidelity, zero-data-loss photos and videos.",
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "packageManager": "pnpm@10.33.3",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "dev:api": "pnpm --filter @cameraderie/api dev",
-    "dev:worker": "pnpm --filter @cameraderie/worker dev",
-    "dev:web": "pnpm --filter @cameraderie/web dev",
-    "db:generate": "pnpm --filter @cameraderie/db generate",
-    "db:migrate": "pnpm --filter @cameraderie/db migrate",
+    "build": "bun run --filter='@cameraderie/shared' build && bun run --filter='@cameraderie/db' build && bun run --filter='@cameraderie/api' build && bun run --filter='@cameraderie/worker' build && bun run --filter='@cameraderie/web' build",
+    "typecheck": "bun run --filter='*' typecheck",
+    "dev:api": "bun run --filter='@cameraderie/api' dev",
+    "dev:worker": "bun run --filter='@cameraderie/worker' dev",
+    "dev:web": "bun run --filter='@cameraderie/web' dev",
+    "db:generate": "bun run --filter='@cameraderie/db' generate",
+    "db:migrate": "bun run --filter='@cameraderie/db' migrate",
     "format": "prettier --write \"**/*.{ts,js,svelte,json,md}\"",
-    "lint": "prettier --check \"**/*.{ts,js,svelte,json,md}\""
+    "lint": "prettier --check \"**/*.{ts,js,svelte,json,md}\"",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "prettier": "^3.4.2",
     "prettier-plugin-svelte": "^3.3.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "sharp", "msgpackr-extract"]
-  }
+  "trustedDependencies": ["esbuild", "sharp", "msgpackr-extract"]
 }

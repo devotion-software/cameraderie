@@ -4,9 +4,8 @@ Private groups for sharing **full-fidelity, zero-data-loss** photos and videos.
 Originals are stored byte-for-byte in Cloudflare R2 and never re-encoded;
 thumbnails and streamable previews are the only files the server derives.
 
-This repo is the **backend + web foundation** (Phase 1 of the build plan), with
-photo **and** video support. Native iOS/Android apps are planned next and will
-reuse the same API.
+This repo contains the **backend, web client, and native iOS + Android apps**,
+with photo **and** video support. Everything shares one API.
 
 ## Architecture
 
@@ -33,19 +32,21 @@ Cloudflare R2  ◀─── originals + derivatives ─────────�
 | `packages/shared` | Shared TS types, zod DTOs, media classification, R2 key conventions, plans |
 | `packages/db` | Drizzle schema for MariaDB (+ Better Auth tables) and migrations |
 | `packages/api` | Fastify API: auth, groups/invites, 3-step upload broker, media, favourites, quota, billing webhook |
-| `packages/worker` | BullMQ worker: checksum verify, `sharp` thumbnails, FFmpeg video previews, RAW fallback |
-| `packages/web` | SvelteKit client (SPA): auth, group feed, direct-to-R2 upload, favourite, download |
+| `packages/worker` | BullMQ worker: checksum verify, content-safety scan, `sharp` thumbnails, FFmpeg video previews, libraw RAW decoding, hourly R2 reconciliation + stale-upload sweeper |
+| `packages/web` | SvelteKit client (SPA): auth, group feed, direct-to-R2 upload, favourite, download, settings, admin moderation |
+| `apps/ios` | Native SwiftUI client (XcodeGen). True-original fetch via `PHAssetResource`, bearer auth, R2 multipart upload |
+| `apps/android` | Native Kotlin/Compose client. Original bytes via `ContentResolver`/MediaStore, WorkManager uploads, bearer auth |
 
 ## Prerequisites
 
-- Node ≥ 20, pnpm ≥ 10, Docker (for MariaDB + Redis)
+- [Bun](https://bun.sh) ≥ 1.1, Docker (for MariaDB + Redis)
 - A Cloudflare R2 bucket + API token (Access Key / Secret) for real uploads
-- `ffmpeg` on the worker host (bundled in the worker Docker image)
+- `ffmpeg` + `libraw` on the worker host (bundled in the worker Docker image)
 
 ## Quick start (local dev)
 
 ```bash
-pnpm install
+bun install
 
 # 1. Config
 cp .env.example .env          # fill in BETTER_AUTH_SECRET + R2_* (see below)
@@ -55,13 +56,13 @@ openssl rand -base64 32       # value for BETTER_AUTH_SECRET
 docker compose up -d mariadb redis
 
 # 3. Database
-pnpm --filter @cameraderie/db generate   # (already committed; re-run after schema changes)
-pnpm --filter @cameraderie/db migrate
+bun run db:generate   # (already committed; re-run after schema changes)
+bun run db:migrate
 
 # 4. Run the services (separate terminals)
-pnpm dev:api      # http://localhost:3000
-pnpm dev:worker
-pnpm dev:web      # http://localhost:5173
+bun run dev:api      # http://localhost:3000
+bun run dev:worker
+bun run dev:web      # http://localhost:5173
 ```
 
 Set `packages/web/.env` → `PUBLIC_API_URL=http://localhost:3000` (a copy is
@@ -106,26 +107,102 @@ web client. The API is on `:3000`, web on `:5173`.
   `/sign-out`; bearer tokens for native clients.
 - **Groups** — `POST/GET /groups`, `GET /groups/:id`, members, leave, delete.
 - **Invites** — `POST /groups/:id/invites`, `GET /invites/:code`, `POST /invites/:code/accept`.
-- **Upload (3-step)** — `POST /media/uploads` → `/:id/complete` → `/:id/abort`.
+- **Upload (3-step, resumable)** — `POST /media/uploads` → `/:id/complete` →
+  `/:id/abort`; `GET /media/uploads/:id` returns which parts R2 already has plus
+  presigned URLs for the rest, so a dropped transfer resumes instead of
+  restarting. Declared type + size are validated server-side before any bytes move.
 - **Media** — `GET /groups/:id/media` (feed), `GET /media/:id`, `/download`, `/preview`, `DELETE /media/:id`.
 - **Favourites** — `PUT/DELETE /media/:id/favourite`, `GET /media/:id/favourites`.
-- **Account** — `GET /me`, `/me/usage`, `/me/entitlements`; `POST /billing/webhook`.
+- **Account** — `GET /me`, `/me/usage`, `/me/entitlements`, `DELETE /me` (GDPR); `POST /billing/webhook`.
+- **Moderation** — `POST /media/:id/report`; admin-only `GET /admin/reports`, `POST /admin/reports/:id/resolve`.
+
+Uploads and invite creation are rate-limited per IP; a 300/min global limit
+covers everything else. Make a user an admin with
+`UPDATE user SET role='admin' WHERE email='you@example.com';`.
+
+## Native apps
+
+Both live under `apps/` and talk to the same API using **bearer tokens** (not
+cookies): sign-in returns a token stored in the iOS Keychain / Android
+EncryptedSharedPreferences and sent as `Authorization: Bearer …`.
+
+- **iOS** (`apps/ios`) — SwiftUI, iOS 17+. `xcodegen generate && open
+  Cameraderie.xcodeproj`, set a signing team, point `AppConfig.apiBaseURL` at
+  the backend. Fetches the true original via `PHAssetResource`.
+- **Android** (`apps/android`) — Kotlin + Compose. Open in Android Studio (it
+  generates the Gradle wrapper on first sync), set `AppConfig.API_BASE_URL`
+  (use `http://10.0.2.2:3000` from the emulator). Uploads run in a WorkManager
+  worker; original bytes come from `ContentResolver`.
+
+Both compute SHA-256 over the exact original bytes and perform the 3-step
+direct-to-R2 multipart upload. Neither was compiled in this environment — expect
+minor version-drift fixes on first build. See each app's README for details.
+
+## Production deployment
+
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+adds a **Caddy** reverse proxy with automatic HTTPS in front of the API and web
+app. Set `API_DOMAIN`/`WEB_DOMAIN` (and the https `API_URL`/`WEB_URL`) in `.env`.
+Schedule `scripts/backup-db.sh` from cron for MariaDB → R2 backups (needs
+`rclone` with an `r2` remote).
 
 ## Verified
 
-`pnpm -r build` and per-package typechecks pass. A local smoke test exercised:
-sign-up → session → create/list group → usage → invite, plus the quota-reject
-(413 before any bytes move), auth (401), and validation (400) guards. The R2
-upload + worker transcode path needs real R2 credentials to run end-to-end.
+`bun run build`, per-package typechecks, and `bun run test` (18 unit tests) all
+pass; CI (`.github/workflows/ci.yml`) runs them plus the Docker image builds. A
+local smoke test against real MariaDB + Redis exercised: sign-up → session →
+group CRUD → usage → invite; the quota-reject (413 before any bytes move), auth
+(401), validation (400), **upload type-rejection and size-cap** guards; the full
+moderation flow (report → admin list → takedown purges media while keeping an
+audit record); account deletion (purge + ownership transfer + cascade); and the
+billing webhooks (Stripe bad-signature → 400, RevenueCat grant/expire → plan
+sync). The R2 data-plane paths — multipart upload, resume (`ListParts`), worker
+transcode, sweeper, and reconciliation — need real R2 credentials to run
+end-to-end; the native apps need Xcode / Android Studio to build.
+
+### Reliability jobs (worker, hourly)
+
+- **Reconciliation** — treats R2 as the source of truth: marks DB rows whose
+  original is missing in R2 as `failed`, deletes orphaned R2 originals with no
+  owning row, then recomputes every user's `used_bytes`.
+- **Stale-upload sweeper** — aborts R2 multiparts and clears rows stuck in
+  `uploading` past a TTL (`STALE_UPLOAD_TTL_MINUTES`, default 24h) so abandoned
+  uploads stop leaking storage.
+
+## Billing
+
+- **Web** — `POST /billing/checkout {plan}` creates a Stripe Checkout session and
+  returns a hosted URL (the Settings page redirects to it). Configure
+  `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_MAX`.
+- **Mobile** — in-app purchase via RevenueCat; its webhook grants the entitlement.
+- **Webhooks** — `POST /billing/webhook` handles both: Stripe events are
+  signature-verified against the raw body (`STRIPE_WEBHOOK_SECRET`); RevenueCat
+  events are authenticated by a shared bearer (`REVENUECAT_WEBHOOK_SECRET`). Both
+  sync a single `storage_tier` entitlement → the user's plan/quota. A lapse
+  downgrades to free and blocks new uploads — files are never auto-deleted.
+
+## Observability & safety
+
+- **Error tracking** — set `SENTRY_DSN` to capture 5xx errors in the API and
+  terminal job failures in the worker (disabled when unset).
+- **Content safety** — the worker checks each original's SHA-256 against a
+  denylist (`BLOCKED_SHA256`) before generating derivatives; a match purges the
+  upload and refunds quota. Swap the denylist for a hash-matching service (e.g.
+  PhotoDNA / NCMEC) for a public launch — the interface in `worker/src/safety.ts`
+  stays the same.
 
 ## Status & what's next
 
-Not yet wired (clean extension points exist):
+- **Production auth cookies** — the web client uses cookie auth; when web and API
+  are on different domains, set `sameSite=none; secure` (already done for
+  `NODE_ENV=production`) and a shared parent domain, or switch web to bearer.
+- **Native builds** — `apps/ios` and `apps/android` need Xcode / Android Studio to
+  compile (not possible in this environment); expect minor version-drift fixes.
+- **TODO — iOS background uploads + invite screen** — the iOS app currently
+  uploads on a foreground `URLSession` and has no invite-accept screen. Switch to
+  a background `URLSession` (plan: "background transfers") and add the invite
+  screen. Android already uses WorkManager + has the invite flow. Not done because
+  it can't be compiled/verified here.
 
-- **Billing** — `POST /billing/webhook` upserts entitlements but signature
-  verification is a TODO; RevenueCat/Stripe SDK wiring pending.
-- **Native apps** — iOS (`PHAssetResource`) and Android (`MediaStore`) clients.
-- **Reconciliation job** — periodic `used_bytes` vs R2 truth-up.
-- **Moderation** — report + takedown workflow before any public launch.
-- **Production auth cookies** — set `sameSite=none; secure` + a shared parent
-  domain (or use bearer tokens) when web and API are on different domains.
+See **[SETUP.md](./SETUP.md)** for the full operator checklist (accounts, keys,
+deployment, native builds).

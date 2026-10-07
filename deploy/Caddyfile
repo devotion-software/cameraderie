@@ -1,0 +1,12 @@
+# Caddy fronts the API and web app with automatic HTTPS (Let's Encrypt).
+# Domains come from the environment (see docker-compose.prod.yml / .env).
+
+{$WEB_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy web:5173
+}
+
+{$API_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy api:3000
+}

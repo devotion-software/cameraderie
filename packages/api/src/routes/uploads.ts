@@ -5,15 +5,26 @@ import {
   beginUploadBody,
   completeUploadBody,
   classifyMedia,
+  isAllowedUpload,
   originalKey,
+  MAX_UPLOAD_BYTES,
   type BeginUploadResponse,
+  type UploadStatusResponse,
 } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
 import { requireMembership, requireUser } from '../guards.js';
 import { parse } from '../validate.js';
 import { assertCanUpload, adjustUsedBytes } from '../quota.js';
-import { createMultipartUpload, completeMultipartUpload, abortMultipartUpload, headObject } from '../r2.js';
+import {
+  createMultipartUpload,
+  completeMultipartUpload,
+  abortMultipartUpload,
+  headObject,
+  listUploadedParts,
+  presignParts,
+  choosePartSize,
+} from '../r2.js';
 import { enqueueDerivatives } from '../queue.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 
@@ -22,10 +33,24 @@ export default async function uploadRoutes(app: FastifyInstance) {
 
   // Step 1 — begin. Checks membership + quota, reserves a media row, and
   // returns presigned multipart URLs. No bytes have moved yet.
-  app.post('/media/uploads', async (req) => {
+  app.post(
+    '/media/uploads',
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (req) => {
     const me = await requireUser(req);
     const body = parse(beginUploadBody, req.body);
     await requireMembership(body.groupId, me.id);
+
+    // Validate declared type and size server-side before reserving anything.
+    if (!isAllowedUpload(body.filename, body.mimeType)) {
+      throw badRequest('Unsupported file type', 'unsupported_type');
+    }
+    if (body.sizeBytes > MAX_UPLOAD_BYTES) {
+      throw badRequest(
+        `File exceeds the maximum upload size of ${MAX_UPLOAD_BYTES} bytes`,
+        'file_too_large',
+      );
+    }
 
     // Enforce quota before any bytes are sent.
     await assertCanUpload(me.id, body.sizeBytes);
@@ -59,6 +84,35 @@ export default async function uploadRoutes(app: FastifyInstance) {
       parts: multipart.parts,
     };
     return response;
+    },
+  );
+
+  // Resume — status. Lists the parts R2 already received and re-presigns the
+  // ones still missing, so a dropped upload resumes instead of restarting.
+  app.get<{ Params: { id: string } }>('/media/uploads/:id', async (req) => {
+    const me = await requireUser(req);
+    const row = await loadOwnPendingUpload(db, req.params.id, me.id);
+    if (!row.r2UploadId) throw conflict('Upload is not in progress');
+
+    const partSizeBytes = choosePartSize(row.sizeBytes);
+    const totalParts = Math.max(1, Math.ceil(row.sizeBytes / partSizeBytes));
+
+    const uploaded = await listUploadedParts(row.objectKey, row.r2UploadId);
+    const have = new Set(uploaded.map((p) => p.partNumber));
+    const missing: number[] = [];
+    for (let n = 1; n <= totalParts; n++) if (!have.has(n)) missing.push(n);
+
+    const remainingParts = await presignParts(row.objectKey, row.r2UploadId, missing);
+
+    const response: UploadStatusResponse = {
+      mediaId: row.id,
+      key: row.objectKey,
+      partSizeBytes,
+      totalParts,
+      uploadedParts: uploaded,
+      remainingParts,
+    };
+    return response;
   });
 
   // Step 2 — complete. Finalizes the multipart upload, verifies the stored
@@ -68,15 +122,28 @@ export default async function uploadRoutes(app: FastifyInstance) {
     '/media/uploads/:id/complete',
     async (req) => {
       const me = await requireUser(req);
-      const body = parse(completeUploadBody, req.body);
+      // Body is accepted for backward-compatibility but the authoritative part
+      // list comes from R2 — so a resumed upload (whose client may not have kept
+      // every ETag) still completes correctly.
+      parse(completeUploadBody, req.body);
       const row = await loadOwnPendingUpload(db, req.params.id, me.id);
 
       if (!row.r2UploadId) throw conflict('Upload is not in progress');
 
+      const partSizeBytes = choosePartSize(row.sizeBytes);
+      const expectedParts = Math.max(1, Math.ceil(row.sizeBytes / partSizeBytes));
+      const uploaded = await listUploadedParts(row.objectKey, row.r2UploadId);
+      if (uploaded.length < expectedParts) {
+        throw badRequest(
+          `Upload incomplete: R2 has ${uploaded.length} of ${expectedParts} parts`,
+          'upload_incomplete',
+        );
+      }
+
       await completeMultipartUpload(
         row.objectKey,
         row.r2UploadId,
-        body.parts.map((p) => ({ partNumber: p.partNumber, etag: p.etag })),
+        uploaded.map((p) => ({ partNumber: p.partNumber, etag: p.etag })),
       );
 
       // Verify the object landed and matches the declared size.

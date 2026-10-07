@@ -6,6 +6,8 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   DeleteObjectsCommand,
+  AbortMultipartUploadCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { loadEnv } from './env.js';
 
@@ -57,4 +59,27 @@ export async function deleteObjects(keys: string[]): Promise<void> {
       Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
     }),
   );
+}
+
+/** Abort an in-flight multipart upload, releasing any parts R2 is holding. */
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  await s3().send(
+    new AbortMultipartUploadCommand({ Bucket: bucket(), Key: key, UploadId: uploadId }),
+  );
+}
+
+/** List every object key under a prefix (paginated). Used by reconciliation. */
+export async function listObjectKeys(prefix: string): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  let token: string | undefined;
+  do {
+    const res = await s3().send(
+      new ListObjectsV2Command({ Bucket: bucket(), Prefix: prefix, ContinuationToken: token }),
+    );
+    for (const obj of res.Contents ?? []) {
+      if (obj.Key) out.set(obj.Key, obj.Size ?? 0);
+    }
+    token = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (token);
+  return out;
 }

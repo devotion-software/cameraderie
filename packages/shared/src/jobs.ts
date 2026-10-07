@@ -13,3 +13,17 @@ export const RECONCILE_QUEUE = 'reconcile';
 export interface ReconcileJob {
   userId: string;
 }
+
+export const SWEEP_QUEUE = 'sweep';
+
+/**
+ * Periodic cleanup of uploads abandoned mid-flight: media rows stuck in
+ * 'uploading' past a TTL, whose R2 multipart should be aborted and row removed.
+ */
+export interface SweepJob {
+  /** Uploads older than this many minutes are considered abandoned. */
+  olderThanMinutes: number;
+}
+
+/** Default: reap uploads that have been 'uploading' for over 24h. */
+export const STALE_UPLOAD_TTL_MINUTES = 24 * 60;

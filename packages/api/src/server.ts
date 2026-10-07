@@ -1,8 +1,10 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { auth } from './auth.js';
 import { loadEnv } from './env.js';
 import { AppError } from './errors.js';
+import { captureError } from './observability.js';
 import { toWebHeaders } from './guards.js';
 import groupsRoutes from './routes/groups.js';
 import invitesRoutes from './routes/invites.js';
@@ -11,6 +13,7 @@ import mediaRoutes from './routes/media.js';
 import favouritesRoutes from './routes/favourites.js';
 import accountRoutes from './routes/account.js';
 import billingRoutes from './routes/billing.js';
+import moderationRoutes from './routes/moderation.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const env = loadEnv();
@@ -26,10 +29,37 @@ export async function buildServer(): Promise<FastifyInstance> {
     bodyLimit: 1024 * 1024,
   });
 
+  // Parse JSON but also retain the raw buffer on `request.rawBody` — Stripe
+  // webhook signature verification needs the exact bytes that were signed.
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'buffer' },
+    (req, body: Buffer, done) => {
+      (req as unknown as { rawBody: Buffer }).rawBody = body;
+      if (body.length === 0) {
+        done(null, undefined);
+        return;
+      }
+      try {
+        done(null, JSON.parse(body.toString('utf8')));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   await app.register(cors, {
     origin: [env.WEB_URL],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  });
+
+  // Global IP rate limit; individual routes (uploads, invites) tighten this
+  // further via their own `config.rateLimit`.
+  await app.register(rateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: '1 minute',
   });
 
   // Consistent error shape.
@@ -40,6 +70,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     }
     req.log.error({ err }, 'unhandled error');
     const status = typeof err.statusCode === 'number' ? err.statusCode : 500;
+    if (status >= 500) captureError(err);
     reply
       .code(status)
       .send({ error: 'internal_error', message: status >= 500 ? 'Internal server error' : err.message });
@@ -81,6 +112,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(favouritesRoutes);
   await app.register(accountRoutes);
   await app.register(billingRoutes);
+  await app.register(moderationRoutes);
 
   return app;
 }

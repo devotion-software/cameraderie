@@ -18,6 +18,16 @@ const envSchema = z.object({
   R2_PRESIGN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 
   FREE_TIER_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024 * 1024),
+
+  // --- Billing (all optional; billing is disabled until configured) ---
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_MAX: z.string().optional(),
+  REVENUECAT_WEBHOOK_SECRET: z.string().optional(),
+
+  // --- Observability (optional) ---
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema> & { R2_ENDPOINT: string };

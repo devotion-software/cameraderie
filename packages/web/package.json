@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev --port 5173",
     "build": "vite build",
-    "preview": "node build",
+    "preview": "bun ./build/index.js",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {

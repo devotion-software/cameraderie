@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme used only for the launch/splash window; actual
+         theming is done with Jetpack Compose + Material3 in ui/theme. -->
+    <style name="Theme.Cameraderie" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

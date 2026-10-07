@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 /**
- * Standalone migration runner. Run with `pnpm --filter @cameraderie/db migrate`.
+ * Standalone migration runner. Run with `bun run db:migrate`.
  * Reads DATABASE_URL from the environment.
  */
 async function main() {

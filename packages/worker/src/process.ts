@@ -4,8 +4,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { eq } from 'drizzle-orm';
-import { derivatives, media, type Media } from '@cameraderie/db';
+import { eq, sql } from 'drizzle-orm';
+import { derivatives, groups, media, user, type Media } from '@cameraderie/db';
 import {
   extensionOf,
   thumbnailKey,
@@ -18,8 +18,10 @@ import {
   type MediaKind,
 } from '@cameraderie/shared';
 import { getDb } from './db.js';
-import { downloadToFile, putObject } from './r2.js';
+import { downloadToFile, putObject, deleteObjects } from './r2.js';
 import { probe, extractFrame, transcodePreview } from './ffmpeg.js';
+import { decodeRawToTiff } from './libraw.js';
+import { checkContentSafety } from './safety.js';
 import { newId } from './ids.js';
 
 // Allow very large images (RAW/panoramas) through libvips.
@@ -65,10 +67,35 @@ export async function processMedia(mediaId: string): Promise<void> {
       );
     }
 
+    // Content-safety: reject known-bad hashes before generating derivatives.
+    // On a match we purge the original + row and stop — nothing is published.
+    const verdict = await checkContentSafety(actual);
+    if (verdict.blocked) {
+      console.warn(`[worker] media ${mediaId} blocked: ${verdict.reason}`);
+      await deleteObjects([row.objectKey]).catch(() => {});
+      await db.delete(media).where(eq(media.id, mediaId));
+      // Refund the quota charged at upload-complete (bytes are 0-floored).
+      await db
+        .update(user)
+        .set({ usedBytes: sql`GREATEST(0, ${user.usedBytes} - ${row.sizeBytes})` })
+        .where(eq(user.id, row.uploaderId));
+      throw new PermanentError(`content-safety block for ${mediaId}: ${verdict.reason}`);
+    }
+
+    // Derivatives strip EXIF/GPS by default (sharp drops metadata unless told
+    // to keep it). A group can opt to retain metadata in previews; originals
+    // always keep everything.
+    const [group] = await db
+      .select({ stripExif: groups.stripExifFromPreviews })
+      .from(groups)
+      .where(eq(groups.id, row.groupId))
+      .limit(1);
+    const keepMetadata = group ? !group.stripExif : false;
+
     const dims =
       row.kind === 'video'
         ? await processVideo(row, originalPath, workdir)
-        : await processImageOrRaw(row, originalPath, workdir);
+        : await processImageOrRaw(row, originalPath, workdir, keepMetadata);
 
     await db
       .update(media)
@@ -86,29 +113,59 @@ interface Dims {
   durationMs: number | null;
 }
 
-async function processImageOrRaw(row: Media, originalPath: string, workdir: string): Promise<Dims> {
+async function processImageOrRaw(
+  row: Media,
+  originalPath: string,
+  workdir: string,
+  keepMetadata: boolean,
+): Promise<Dims> {
+  if (row.kind === 'raw') return processRaw(row, originalPath, workdir, keepMetadata);
+  const { width, height } = await makeImageDerivatives(originalPath, row.id, row.kind, keepMetadata);
+  return { width, height, durationMs: null };
+}
+
+/**
+ * RAW preview generation, best source first:
+ *   1. libraw (`dcraw_emu`) — a true demosaiced render of the sensor data.
+ *   2. sharp/libvips directly — works for DNG and some formats.
+ *   3. ffmpeg — pulls the embedded JPEG preview.
+ * The original RAW is never modified; if all three fail the media still becomes
+ * 'ready' (sans derivatives) so it appears in the feed.
+ */
+async function processRaw(
+  row: Media,
+  originalPath: string,
+  workdir: string,
+  keepMetadata: boolean,
+): Promise<Dims> {
+  // 1. libraw.
   try {
-    const { width, height } = await makeImageDerivatives(originalPath, row.id, row.kind);
+    const tiff = await decodeRawToTiff(originalPath);
+    const { width, height } = await makeImageDerivatives(tiff, row.id, row.kind, keepMetadata);
     return { width, height, durationMs: null };
   } catch (err) {
-    if (row.kind === 'raw') {
-      // RAW that libvips can't decode: try to pull an embedded preview via ffmpeg.
-      console.warn(`[worker] sharp failed on RAW ${row.id}, trying ffmpeg fallback`, err);
-      const framePath = join(workdir, 'frame.png');
-      try {
-        await extractFrame(originalPath, framePath);
-        const { width, height } = await makeImageDerivatives(framePath, row.id, row.kind);
-        return { width, height, durationMs: null };
-      } catch (err2) {
-        // Can't derive a preview — the original is still safe. Mark derivatives
-        // failed but let the media be 'ready' so it appears (sans thumbnail).
-        console.error(`[worker] could not derive preview for RAW ${row.id}`, err2);
-        await markDerivativeFailed(row.id, 'thumbnail', thumbnailKey(row.id));
-        await markDerivativeFailed(row.id, 'preview', previewKey(row.id, row.kind));
-        return { width: null, height: null, durationMs: null };
-      }
-    }
-    throw err;
+    console.warn(`[worker] libraw decode failed for RAW ${row.id}, trying sharp directly`, err);
+  }
+
+  // 2. sharp/libvips directly on the original.
+  try {
+    const { width, height } = await makeImageDerivatives(originalPath, row.id, row.kind, keepMetadata);
+    return { width, height, durationMs: null };
+  } catch (err) {
+    console.warn(`[worker] sharp failed on RAW ${row.id}, trying ffmpeg embedded preview`, err);
+  }
+
+  // 3. ffmpeg embedded preview.
+  try {
+    const framePath = join(workdir, 'frame.png');
+    await extractFrame(originalPath, framePath);
+    const { width, height } = await makeImageDerivatives(framePath, row.id, row.kind, keepMetadata);
+    return { width, height, durationMs: null };
+  } catch (err) {
+    console.error(`[worker] could not derive any preview for RAW ${row.id}`, err);
+    await markDerivativeFailed(row.id, 'thumbnail', thumbnailKey(row.id));
+    await markDerivativeFailed(row.id, 'preview', previewKey(row.id, row.kind));
+    return { width: null, height: null, durationMs: null };
   }
 }
 
@@ -141,9 +198,11 @@ async function makeImageDerivatives(
   imagePath: string,
   mediaId: string,
   mediaKind: MediaKind,
+  keepMetadata: boolean,
 ): Promise<{ width: number | null; height: number | null }> {
   const meta = await sharp(imagePath, { failOn: 'none' }).metadata();
 
+  // Thumbnails are always metadata-free (tiny, pure UI).
   const thumb = await sharp(imagePath, { failOn: 'none' })
     .rotate()
     .resize(THUMBNAIL_MAX_EDGE, THUMBNAIL_MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
@@ -152,11 +211,11 @@ async function makeImageDerivatives(
   await putObject(thumbnailKey(mediaId), thumb, 'image/webp');
   await upsertDerivative(mediaId, 'thumbnail', thumbnailKey(mediaId), 'image/webp', thumb.length, null, null);
 
-  const preview = await sharp(imagePath, { failOn: 'none' })
+  let previewPipeline = sharp(imagePath, { failOn: 'none' })
     .rotate()
-    .resize(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 82 })
-    .toBuffer();
+    .resize(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE, { fit: 'inside', withoutEnlargement: true });
+  if (keepMetadata) previewPipeline = previewPipeline.withMetadata();
+  const preview = await previewPipeline.webp({ quality: 82 }).toBuffer();
   const pKey = previewKey(mediaId, mediaKind);
   await putObject(pKey, preview, 'image/webp');
   await upsertDerivative(mediaId, 'preview', pKey, 'image/webp', preview.length, null, null);

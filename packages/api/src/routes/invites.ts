@@ -12,7 +12,10 @@ export default async function invitesRoutes(app: FastifyInstance) {
   const db = getDb();
 
   // Create an invite for a group (admin or owner).
-  app.post<{ Params: { id: string } }>('/groups/:id/invites', async (req) => {
+  app.post<{ Params: { id: string } }>(
+    '/groups/:id/invites',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (req) => {
     const me = await requireUser(req);
     await requireMembership(req.params.id, me.id, 'admin');
     const body = parse(createInviteBody, req.body ?? {});
@@ -27,7 +30,8 @@ export default async function invitesRoutes(app: FastifyInstance) {
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
     });
     return { invite: { id, code, groupId: req.params.id } };
-  });
+    },
+  );
 
   // Preview an invite (public-ish: any authenticated user can look it up).
   app.get<{ Params: { code: string } }>('/invites/:code', async (req) => {

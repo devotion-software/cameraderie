@@ -14,6 +14,13 @@ const envSchema = z.object({
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
   FFMPEG_PATH: z.string().optional(),
   FFPROBE_PATH: z.string().optional(),
+  // libraw's dcraw_emu binary, for decoding camera RAW. Defaults to PATH.
+  DCRAW_EMU_PATH: z.string().optional(),
+
+  SENTRY_DSN: z.string().optional(),
+  // Comma-separated SHA-256 hex digests to block on upload (content-safety
+  // denylist). A production setup would query a hash service instead.
+  BLOCKED_SHA256: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema> & { R2_ENDPOINT: string };

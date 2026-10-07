@@ -21,6 +21,14 @@
       <a href="/groups" class="navlink" class:active={page.url.pathname.startsWith('/groups')}>
         Groups
       </a>
+      {#if ($session.data.user as { role?: string }).role === 'admin'}
+        <a href="/admin/reports" class="navlink" class:active={page.url.pathname.startsWith('/admin')}>
+          Admin
+        </a>
+      {/if}
+      <a href="/settings" class="navlink" class:active={page.url.pathname.startsWith('/settings')}>
+        Settings
+      </a>
       <span class="muted email">{$session.data.user.email}</span>
       <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
     {:else}

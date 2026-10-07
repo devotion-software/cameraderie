@@ -12,6 +12,7 @@ export interface SessionUser {
   name: string;
   usedBytes: number;
   plan: string;
+  role: string;
 }
 
 /** Convert Fastify's incoming headers into a web `Headers` for Better Auth. */
@@ -36,7 +37,15 @@ export async function requireUser(req: FastifyRequest): Promise<SessionUser> {
     name: u.name,
     usedBytes: typeof u.usedBytes === 'number' ? u.usedBytes : 0,
     plan: typeof u.plan === 'string' ? u.plan : 'free',
+    role: typeof u.role === 'string' ? u.role : 'user',
   };
+}
+
+/** Require an authenticated site admin, or throw 403. */
+export async function requireAdmin(req: FastifyRequest): Promise<SessionUser> {
+  const me = await requireUser(req);
+  if (me.role !== 'admin') throw forbidden('Admin access required');
+  return me;
 }
 
 const ROLE_RANK: Record<GroupRole, number> = { member: 0, admin: 1, owner: 2 };

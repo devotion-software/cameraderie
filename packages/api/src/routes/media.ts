@@ -4,8 +4,8 @@ import { derivatives, favourites, media } from '@cameraderie/db';
 import { getDb } from '../db.js';
 import { requireMembership, requireUser } from '../guards.js';
 import { serializeMedia, type MediaDto } from '../serialize.js';
-import { presignGet, deleteObjects } from '../r2.js';
-import { adjustUsedBytes } from '../quota.js';
+import { presignGet } from '../r2.js';
+import { purgeMedia } from '../media-ops.js';
 import { forbidden, notFound } from '../errors.js';
 
 const DEFAULT_PAGE = 30;
@@ -86,19 +86,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
     const isOwner = membership.role === 'owner';
     if (!isUploader && !isOwner) throw forbidden('Only the uploader or group owner can delete');
 
-    const derivs = await db
-      .select()
-      .from(derivatives)
-      .where(eq(derivatives.mediaId, row.id));
-
-    const keys = [row.objectKey, ...derivs.map((d) => d.objectKey)];
-    await deleteObjects(keys).catch((err) => req.log.error({ err }, 'R2 delete failed'));
-
-    await db.delete(media).where(eq(media.id, row.id)); // cascades derivatives + favourites
-    // Only refund quota if the bytes were charged (counted once it was stored).
-    if (row.state === 'processing' || row.state === 'ready' || row.state === 'failed') {
-      await adjustUsedBytes(row.uploaderId, -row.sizeBytes);
-    }
+    await purgeMedia(row, (err) => req.log.error({ err }, 'R2 delete failed'));
     reply.code(204);
   });
 }

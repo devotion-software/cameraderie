@@ -1,0 +1,30 @@
+# Production overlay: adds a Caddy reverse proxy with automatic HTTPS in front
+# of the API and web app. Use together with the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Set API_DOMAIN + WEB_DOMAIN in .env, and point API_URL/WEB_URL at the https
+# domains so Better Auth cookies and CORS use the real origins. For a hardened
+# box, also firewall the 3000/5173/3306/6379 ports so only Caddy is public.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      WEB_DOMAIN: ${WEB_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -4,6 +4,7 @@ import {
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
   UploadPartCommand,
+  ListPartsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
@@ -74,9 +75,19 @@ export async function createMultipartUpload(
 
   const partSizeBytes = choosePartSize(sizeBytes);
   const partCount = Math.max(1, Math.ceil(sizeBytes / partSizeBytes));
+  const parts = await presignParts(key, uploadId, range(1, partCount));
 
+  return { uploadId, partSizeBytes, parts };
+}
+
+/** Presign upload URLs for a specific set of part numbers (used for resume). */
+export async function presignParts(
+  key: string,
+  uploadId: string,
+  partNumbers: number[],
+): Promise<PresignedPart[]> {
   const parts: PresignedPart[] = [];
-  for (let partNumber = 1; partNumber <= partCount; partNumber++) {
+  for (const partNumber of partNumbers) {
     const url = await getSignedUrl(
       s3(),
       new UploadPartCommand({ Bucket: bucket(), Key: key, UploadId: uploadId, PartNumber: partNumber }),
@@ -84,8 +95,43 @@ export async function createMultipartUpload(
     );
     parts.push({ partNumber, url });
   }
+  return parts;
+}
 
-  return { uploadId, partSizeBytes, parts };
+/** List the parts R2 has already received for an in-flight multipart upload. */
+export async function listUploadedParts(
+  key: string,
+  uploadId: string,
+): Promise<{ partNumber: number; size: number; etag: string }[]> {
+  const received: { partNumber: number; size: number; etag: string }[] = [];
+  let marker: string | undefined;
+  do {
+    const res = await s3().send(
+      new ListPartsCommand({
+        Bucket: bucket(),
+        Key: key,
+        UploadId: uploadId,
+        PartNumberMarker: marker,
+      }),
+    );
+    for (const p of res.Parts ?? []) {
+      if (p.PartNumber != null) {
+        received.push({
+          partNumber: p.PartNumber,
+          size: p.Size ?? 0,
+          etag: p.ETag ?? '',
+        });
+      }
+    }
+    marker = res.IsTruncated ? res.NextPartNumberMarker : undefined;
+  } while (marker);
+  return received;
+}
+
+function range(start: number, end: number): number[] {
+  const out: number[] = [];
+  for (let i = start; i <= end; i++) out.push(i);
+  return out;
 }
 
 export async function completeMultipartUpload(

@@ -111,6 +111,24 @@ export function classifyMedia(filename: string, mime?: string | null): MediaKind
   return 'image';
 }
 
+// ── Upload allowlist & caps ────────────────────────────────────────────────────
+
+/** Largest single upload we accept, in bytes (10 GiB). */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024;
+
+/**
+ * Whether a declared filename (+ optional mime) is an allowed media upload. We
+ * accept known image / RAW / video extensions, or a declared image/video mime.
+ * Enforced server-side at upload-begin so junk never reserves a slot in R2.
+ */
+export function isAllowedUpload(filename: string, mime?: string | null): boolean {
+  const ext = extensionOf(filename);
+  const m = (mime ?? '').toLowerCase();
+  if (RAW_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext)) return true;
+  if (RAW_MIMES.has(m) || m.startsWith('image/') || m.startsWith('video/')) return true;
+  return false;
+}
+
 // ── R2 key conventions ───────────────────────────────────────────────────────
 //
 // Keys are deterministic from the media id so the worker can find an original

@@ -20,7 +20,7 @@
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate": "drizzle-kit generate",
-    "migrate": "tsx src/migrate.ts",
+    "migrate": "bun src/migrate.ts",
     "push": "drizzle-kit push"
   },
   "dependencies": {
@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.11",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }

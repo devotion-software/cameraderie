@@ -1,4 +1,8 @@
-import type { BeginUploadResponse } from '@cameraderie/shared';
+import type {
+  BeginUploadResponse,
+  PresignedPart,
+  UploadStatusResponse,
+} from '@cameraderie/shared';
 import { api, ApiError } from './api';
 
 /**
@@ -18,9 +22,14 @@ export interface UploadHandle {
   mediaId: string;
 }
 
+const MAX_ATTEMPTS = 3;
+
 /**
- * Three-step direct-to-R2 upload: begin → PUT each part straight to R2 →
- * complete. The bytes never pass through the API.
+ * Three-step direct-to-R2 upload with resume: begin → PUT each part straight to
+ * R2 → complete. On a transient failure the whole transfer is retried, but we
+ * first ask the server which parts R2 already has and skip those — so a dropped
+ * connection resumes from the last part instead of restarting. Bytes never pass
+ * through the API.
  */
 export async function uploadFile(
   groupId: string,
@@ -37,33 +46,62 @@ export async function uploadFile(
     checksumSha256,
   });
 
-  const completed: { partNumber: number; etag: string }[] = [];
-  let uploaded = 0;
-  try {
-    for (const part of begin.parts) {
-      const start = (part.partNumber - 1) * begin.partSizeBytes;
-      const end = Math.min(start + begin.partSizeBytes, file.size);
-      const chunk = file.slice(start, end);
+  const partSize = begin.partSizeBytes;
+  const totalParts = begin.parts.length;
+  // Parts still to send this round (starts as all of them).
+  let pending: PresignedPart[] = begin.parts;
+  let doneParts = 0;
 
-      const res = await fetch(part.url, { method: 'PUT', body: chunk });
-      if (!res.ok) throw new Error(`Part ${part.partNumber} failed: ${res.status}`);
-      // R2 returns the part ETag; CompleteMultipartUpload needs it verbatim.
-      const etag = res.headers.get('etag') ?? res.headers.get('ETag');
-      if (!etag) throw new Error('R2 did not return an ETag (check bucket CORS ExposeHeaders)');
-      completed.push({ partNumber: part.partNumber, etag });
+  const reportProgress = () => onProgress?.(Math.min(1, (doneParts * partSize) / Math.max(1, file.size)));
 
-      uploaded += end - start;
-      onProgress?.(uploaded / Math.max(1, file.size));
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await putParts(pending, file, partSize, () => {
+        doneParts++;
+        reportProgress();
+      });
+      await api.post(`/media/uploads/${begin.mediaId}/complete`, { parts: [] });
+      onProgress?.(1);
+      return { mediaId: begin.mediaId };
+    } catch (err) {
+      lastErr = err;
+      if (attempt === MAX_ATTEMPTS) break;
+      // Ask the server what R2 already has, and retry only the missing parts.
+      try {
+        const status = await api.get<UploadStatusResponse>(`/media/uploads/${begin.mediaId}`);
+        pending = status.remainingParts;
+        doneParts = status.uploadedParts.length;
+        reportProgress();
+      } catch {
+        // If even the status call fails, retry the full set next loop.
+        pending = begin.parts;
+      }
     }
-  } catch (err) {
-    // Release the reserved upload so it doesn't linger.
-    await api.post(`/media/uploads/${begin.mediaId}/abort`).catch(() => {});
-    throw err;
   }
 
-  await api.post(`/media/uploads/${begin.mediaId}/complete`, { parts: completed });
-  onProgress?.(1);
-  return { mediaId: begin.mediaId };
+  // All attempts exhausted — release the reserved upload so it doesn't linger.
+  await api.post(`/media/uploads/${begin.mediaId}/abort`).catch(() => {});
+  throw lastErr instanceof Error ? lastErr : new Error('Upload failed');
+}
+
+async function putParts(
+  parts: PresignedPart[],
+  file: File,
+  partSize: number,
+  onPartDone: () => void,
+): Promise<void> {
+  for (const part of parts) {
+    const start = (part.partNumber - 1) * partSize;
+    const end = Math.min(start + partSize, file.size);
+    const chunk = file.slice(start, end);
+
+    const res = await fetch(part.url, { method: 'PUT', body: chunk });
+    if (!res.ok) throw new Error(`Part ${part.partNumber} failed: ${res.status}`);
+    // R2 returns the part ETag; the server re-reads it from R2 on complete, so
+    // we don't need to retain it client-side — just confirm the PUT succeeded.
+    onPartDone();
+  }
 }
 
 export { ApiError };

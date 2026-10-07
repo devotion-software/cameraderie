@@ -36,6 +36,8 @@ export const user = mysqlTable('user', {
   usedBytes: bigint('used_bytes', { mode: 'number' }).notNull().default(0),
   /** Derived from the storage_tier entitlement. One of plans in @cameraderie/shared. */
   plan: varchar('plan', { length: 32 }).notNull().default('free'),
+  /** Site-wide role: 'user' or 'admin' (admins can review reports / take down media). */
+  role: varchar('role', { length: 32 }).notNull().default('user'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
 });
@@ -103,6 +105,8 @@ export const groups = mysqlTable(
     ownerId: varchar('owner_id', { length: 64 })
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    /** Strip EXIF/GPS from derivative previews (originals keep everything). */
+    stripExifFromPreviews: boolean('strip_exif_from_previews').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('groups_owner_idx').on(t.ownerId)],
@@ -240,6 +244,32 @@ export const subscriptions = mysqlTable(
   (t) => [uniqueIndex('subscriptions_user_uq').on(t.userId)],
 );
 
+export const reports = mysqlTable(
+  'reports',
+  {
+    id: varchar('id', { length: 64 }).primaryKey(),
+    // Nullable + set null so a report survives as an audit record after the
+    // media is taken down.
+    mediaId: varchar('media_id', { length: 64 }).references(() => media.id, {
+      onDelete: 'set null',
+    }),
+    reporterId: varchar('reporter_id', { length: 64 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    reason: varchar('reason', { length: 500 }).notNull(),
+    status: mysqlEnum('status', ['open', 'actioned', 'dismissed']).notNull().default('open'),
+    reviewedBy: varchar('reviewed_by', { length: 64 }).references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    reviewedAt: timestamp('reviewed_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('reports_status_idx').on(t.status, t.createdAt),
+    uniqueIndex('reports_media_reporter_uq').on(t.mediaId, t.reporterId),
+  ],
+);
+
 // ── Relations ───────────────────────────────────────────────────────────────────
 
 export const userRelations = relations(user, ({ many, one }) => ({
@@ -289,6 +319,7 @@ export const schema = {
   derivatives,
   favourites,
   subscriptions,
+  reports,
   userRelations,
   groupsRelations,
   membershipsRelations,
@@ -305,3 +336,4 @@ export type Media = typeof media.$inferSelect;
 export type Derivative = typeof derivatives.$inferSelect;
 export type Favourite = typeof favourites.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type Report = typeof reports.$inferSelect;

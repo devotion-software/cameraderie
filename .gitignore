@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
-.pnpm-store/
+.bun/
+# bun.lock is the committed lockfile — do NOT ignore it.
 
 # Build output
 dist/
@@ -22,3 +23,19 @@ tmp/
 .DS_Store
 .idea/
 .vscode/
+
+# Native — iOS
+apps/ios/*.xcodeproj/
+apps/ios/*.xcworkspace/
+apps/ios/DerivedData/
+apps/ios/Pods/
+
+# Native — Android
+apps/android/.gradle/
+apps/android/build/
+apps/android/app/build/
+apps/android/local.properties
+apps/android/.idea/
+apps/android/captures/
+*.apk
+*.aab

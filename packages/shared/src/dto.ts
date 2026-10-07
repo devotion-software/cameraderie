@@ -63,6 +63,29 @@ export interface BeginUploadResponse {
   parts: PresignedPart[];
 }
 
+/** A part R2 has already received — returned by the resume-status endpoint. */
+export interface UploadedPart {
+  partNumber: number;
+  size: number;
+  etag: string;
+}
+
+/**
+ * Resume status: which parts R2 already has, plus freshly presigned URLs for the
+ * parts still missing. Lets a client resume a dropped upload instead of
+ * restarting from part 1.
+ */
+export interface UploadStatusResponse {
+  mediaId: string;
+  key: string;
+  partSizeBytes: number;
+  totalParts: number;
+  /** Parts R2 has already stored (skip re-uploading these). */
+  uploadedParts: UploadedPart[];
+  /** Presigned URLs for the parts still outstanding. */
+  remainingParts: PresignedPart[];
+}
+
 /** One completed part the client reports back (ETag from R2's response). */
 export const completedPart = z.object({
   partNumber: z.number().int().positive(),
@@ -83,3 +106,16 @@ export interface UsageResponse {
   /** True when over quota: viewing/download/delete allowed, new uploads blocked. */
   readOnly: boolean;
 }
+
+// ── Moderation ──────────────────────────────────────────────────────────────────
+
+export const reportMediaBody = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+export type ReportMediaBody = z.infer<typeof reportMediaBody>;
+
+export const resolveReportBody = z.object({
+  /** 'actioned' removes the media; 'dismissed' keeps it. */
+  action: z.enum(['actioned', 'dismissed']),
+});
+export type ResolveReportBody = z.infer<typeof resolveReportBody>;

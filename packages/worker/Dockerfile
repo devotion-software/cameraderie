@@ -1,19 +1,19 @@
 # Build context is the repo root: docker build -f packages/worker/Dockerfile .
-FROM node:22-bookworm-slim
+FROM oven/bun:1
 
-# ffmpeg for video probing/transcoding; libvips ships inside sharp's prebuilt binary.
+# ffmpeg for video probing/transcoding; libvips ships inside sharp's prebuilt
+# binary; libraw-bin provides dcraw_emu for decoding camera RAW to TIFF.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg \
+  && apt-get install -y --no-install-recommends ffmpeg libraw-bin \
   && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable
 WORKDIR /app
 
 COPY . .
-RUN pnpm install --no-frozen-lockfile \
-  && pnpm --filter @cameraderie/shared build \
-  && pnpm --filter @cameraderie/db build \
-  && pnpm --filter @cameraderie/worker build
+RUN bun install \
+  && bun run --filter='@cameraderie/shared' build \
+  && bun run --filter='@cameraderie/db' build \
+  && bun run --filter='@cameraderie/worker' build
 
 ENV NODE_ENV=production
-CMD ["node", "packages/worker/dist/index.js"]
+CMD ["bun", "packages/worker/dist/index.js"]

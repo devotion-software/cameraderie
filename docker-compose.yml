@@ -60,8 +60,24 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_ENDPOINT: ${R2_ENDPOINT:-}
       R2_PRESIGN_TTL_SECONDS: ${R2_PRESIGN_TTL_SECONDS:-900}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_MAX: ${STRIPE_PRICE_MAX:-}
+      REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
     ports:
       - '3000:3000'
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   worker:
     build:
@@ -83,6 +99,19 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_ENDPOINT: ${R2_ENDPOINT:-}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      BLOCKED_SHA256: ${BLOCKED_SHA256:-}
+    healthcheck:
+      # Liveness: the heartbeat file must have been touched within ~90s.
+      test:
+        - CMD
+        - bun
+        - -e
+        - "const fs=require('fs');const t=+fs.readFileSync('/tmp/worker-heartbeat','utf8');process.exit(Date.now()-t<90000?0:1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   web:
     build:
@@ -97,6 +126,16 @@ services:
       PORT: 5173
     ports:
       - '5173:5173'
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - "fetch('http://localhost:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   mariadb-data:
