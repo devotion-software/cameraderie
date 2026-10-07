@@ -167,13 +167,14 @@ Both live under `apps/` and talk to the same API using **bearer tokens** (not
 cookies): sign-in returns a token stored in the iOS Keychain / Android
 EncryptedSharedPreferences and sent as `Authorization: Bearer …`.
 
-- **iOS** (`apps/ios`) — SwiftUI, iOS 17+. `xcodegen generate && open
-Cameraderie.xcodeproj`, set a signing team, point `AppConfig.apiBaseURL` at
-  the backend. Fetches the true original via `PHAssetResource`.
+- **iOS** (`apps/ios`) — SwiftUI, iOS 17+. `make ios` (runs `xcodegen generate &&
+open Cameraderie.xcodeproj`), set a signing team, point `AppConfig.apiBaseURL`
+  at the backend. Fetches the true original via `PHAssetResource`.
 - **Android** (`apps/android`) — Kotlin + Compose. Open in Android Studio (it
   generates the Gradle wrapper on first sync), set `AppConfig.API_BASE_URL`
-  (use `http://10.0.2.2:3000` from the emulator). Uploads run in a WorkManager
-  worker; original bytes come from `ContentResolver`.
+  (use `http://10.0.2.2:3000` from the emulator). With a local Android SDK,
+  `make android-build` / `make android-install` work from the CLI. Uploads run in
+  a WorkManager worker; original bytes come from `ContentResolver`.
 
 Both compute SHA-256 over the exact original bytes and perform the 3-step
 direct-to-R2 multipart upload. Neither was compiled in this environment — expect
