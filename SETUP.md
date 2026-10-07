@@ -35,9 +35,15 @@ building the native apps. Work top-to-bottom. Items are marked:
 
 ---
 
-## 2. Cloudflare R2 — [required]
+## 2. Cloudflare R2 — [required for staging/production]
 
 All media bytes live here; the app only brokers presigned URLs.
+
+> **Local dev doesn't need R2.** `make up` starts a local, S3-compatible MinIO
+> (console at http://localhost:9001, `minioadmin`/`minioadmin`) and auto-creates
+> the bucket with the right CORS. Point the app at it with the MinIO `R2_*` block
+> from `.env.example` (section 1.5). Do the steps below only when you want real
+> R2 for staging/production.
 
 1. In the Cloudflare dashboard → **R2** → create a bucket (e.g. `cameraderie`).
 2. **R2 → Manage API Tokens** → create an API token with Object Read & Write on
@@ -71,23 +77,26 @@ All media bytes live here; the app only brokers presigned URLs.
 
 ## 3. Run it locally — [required]
 
+The [Makefile](./Makefile) wraps the common tasks — `make help` lists them all.
+
 ```bash
-bun install
+make install          # bun install
 
-# Start MariaDB + Redis
-docker compose up -d mariadb redis
+make up               # start MariaDB + Redis + MinIO (local S3), bucket auto-created
+make migrate          # apply the DB schema (safe to re-run)
+make seed             # optional: a demo login (demo@cameraderie.local / password123)
 
-# Apply the database schema (safe to re-run)
-bun run db:migrate
-
-# Run the three services in separate terminals:
-bun run dev:api      # http://localhost:3000
-bun run dev:worker
-bun run dev:web      # http://localhost:5173
+make dev              # build the shared libs, then run api + worker + web (Ctrl-C stops all)
 ```
 
-Open http://localhost:5173, sign up, create a group, and upload a photo. If
-uploads fail, re-check the R2 CORS rule (step 2.4).
+Open http://localhost:5173, sign in with the seeded account (or sign up — allowed
+in dev since `ALLOWED_SIGNUP_EMAILS` is blank), create a group, and upload a
+photo. If uploads fail against **real R2**, re-check the CORS rule (step 2.4);
+against local MinIO it's configured for you.
+
+Other handy targets: `make stop` (stop infra), `make reset-db` (wipe + migrate +
+seed), `make test`, `make typecheck`, `make lint` / `make format`,
+`make console` (open the MinIO console).
 
 **Full-stack alternative** (builds images, runs migrations on boot):
 
@@ -99,10 +108,11 @@ docker compose up --build
 
 ## 4. Make yourself an admin — [required for moderation]
 
-Admins see `/admin/reports` and can take media down. After signing up once:
+Admins see `/admin/reports` and can take media down. After signing up once (the
+infra from `make up` must be running):
 
 ```bash
-docker exec -it cameraderie-mariadb-1 \
+docker compose exec mariadb \
   mariadb -ucameraderie -p<MARIADB_PASSWORD> cameraderie \
   -e "UPDATE user SET role='admin' WHERE email='you@example.com';"
 ```
@@ -243,10 +253,8 @@ first build.
 
 **iOS** (`apps/ios`):
 
-1. Install XcodeGen (`brew install xcodegen`), then:
-   ```bash
-   cd apps/ios && xcodegen generate && open Cameraderie.xcodeproj
-   ```
+1. Install XcodeGen (`brew install xcodegen`), then `make ios` (runs
+   `xcodegen generate && open Cameraderie.xcodeproj`).
 2. Set a **Development Team** (Signing & Capabilities) for code signing.
 3. Set `apiBaseURL` in `Sources/App/AppConfig.swift` (Simulator can use
    `http://localhost:3000`).
@@ -255,7 +263,9 @@ first build.
 **Android** (`apps/android`):
 
 1. Open `apps/android` in Android Studio (it generates the Gradle wrapper on
-   first sync).
+   first sync). With a local Android SDK + `gradle`, `make android-build`
+   (assembles the debug APK) and `make android-install` (installs to a connected
+   device/emulator) also work from the CLI.
 2. Set `API_BASE_URL` in `.../app/AppConfig.kt`. From the emulator use
    `http://10.0.2.2:3000` (not `localhost`).
 3. Build & run.
@@ -296,10 +306,15 @@ Follow-up coding work in `apps/ios`, deferred because it can't be compiled here:
 | What           | Where                                                                           |
 | -------------- | ------------------------------------------------------------------------------- |
 | All config     | `.env` (template: `.env.example`)                                               |
-| Install        | `bun install`                                                                   |
-| Run migrations | `bun run db:migrate`                                                            |
-| Dev servers    | `bun run dev:api` / `dev:worker` / `dev:web`                                    |
+| List tasks     | `make help`                                                                     |
+| Install        | `make install`                                                                  |
+| Start infra    | `make up` (MariaDB + Redis + MinIO) / `make stop`                               |
+| Run migrations | `make migrate` (`make generate` for a new one)                                  |
+| Seed demo data | `make seed`                                                                     |
+| Dev servers    | `make dev` (api + worker + web together)                                        |
+| Reset database | `make reset-db`                                                                 |
 | Full stack     | `docker compose up --build`                                                     |
 | Production     | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
-| Tests          | `bun run test`                                                                  |
+| Tests          | `make test` (type-check: `make typecheck`)                                      |
+| Native apps    | `make ios` / `make android-build`                                               |
 | Make admin     | SQL `UPDATE user SET role='admin' …`                                            |
