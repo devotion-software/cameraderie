@@ -36,6 +36,49 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── Local S3 (dev only) ──────────────────────────────────────────────
+  # Stand-in for Cloudflare R2 when developing. R2 is S3-compatible, so the
+  # app talks to this with no code change — just point R2_ENDPOINT at it
+  # (http://localhost:9000) and use the minioadmin creds. See .env.example.
+  # NOTE: originals still live in real R2 in production; this is dev scaffolding.
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio-data:/data
+    ports:
+      - '9000:9000' # S3 API — presigned upload/download URLs hit this
+      - '9001:9001' # web console (http://localhost:9001)
+
+  # One-shot: create the bucket and set CORS so the browser can read the
+  # ETag header after each multipart PUT (the resumable-upload path needs it,
+  # same reason real R2 needs ExposeHeaders: ETag). Exits once done.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        until mc alias set local http://minio:9000 \
+          "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin}"; do
+          echo 'waiting for minio...'; sleep 1;
+        done
+        mc mb -p "local/${R2_BUCKET:-cameraderie}"
+        mc anonymous set none "local/${R2_BUCKET:-cameraderie}"
+        cat > /tmp/cors.json <<'JSON'
+        {"CORSRules":[{"AllowedOrigins":["*"],"AllowedMethods":["GET","PUT","POST","DELETE","HEAD"],"AllowedHeaders":["*"],"ExposeHeaders":["ETag"]}]}
+        JSON
+        mc cors set "local/${R2_BUCKET:-cameraderie}" /tmp/cors.json || \
+          echo 'cors set skipped (older mc); MinIO exposes ETag by default'
+        echo 'minio bucket ready'
+
   api:
     build:
       context: .
@@ -140,3 +183,4 @@ services:
 volumes:
   mariadb-data:
   redis-data:
+  minio-data:
