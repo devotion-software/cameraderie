@@ -22,7 +22,14 @@ building the native apps. Work top-to-bottom. Items are marked:
    ```
 3. Set the database passwords (`MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`) to
    your own values. For local dev the defaults work.
-4. Leave Stripe/RevenueCat/Sentry/BLOCKED_SHA256 blank for now (sections 5–8).
+4. `ALLOWED_SIGNUP_EMAILS` gates who may create an account. Leave it **blank for
+   local dev** — sign-up is open and the API logs a warning. Set it to a
+   comma-separated allowlist (keeping the app invite-only) **before you share
+   the app**.
+5. **Local storage (dev):** uncomment the MinIO `R2_*` block in `.env.example`
+   (`R2_ENDPOINT=http://localhost:9000`, `minioadmin`/`minioadmin`) so dev runs
+   against the local MinIO container instead of real R2 — see section 2.
+6. Leave Stripe/RevenueCat/Sentry/BLOCKED_SHA256 blank for now (sections 5–8).
 
 **Never commit `.env`.** It's git-ignored already.
 
@@ -83,6 +90,7 @@ Open http://localhost:5173, sign up, create a group, and upload a photo. If
 uploads fail, re-check the R2 CORS rule (step 2.4).
 
 **Full-stack alternative** (builds images, runs migrations on boot):
+
 ```bash
 docker compose up --build
 ```
@@ -92,11 +100,13 @@ docker compose up --build
 ## 4. Make yourself an admin — [required for moderation]
 
 Admins see `/admin/reports` and can take media down. After signing up once:
+
 ```bash
 docker exec -it cameraderie-mariadb-1 \
   mariadb -ucameraderie -p<MARIADB_PASSWORD> cameraderie \
   -e "UPDATE user SET role='admin' WHERE email='you@example.com';"
 ```
+
 Sign out and back in to pick up the role.
 
 ---
@@ -154,12 +164,27 @@ Sign out and back in to pick up the role.
 
 ## 8. Content-safety hash list — [optional, but do before public launch]
 
-The worker blocks uploads whose SHA-256 matches a denylist.
+The worker checks each upload's SHA-256 against a denylist. A match
+**quarantines** (not deletes) the upload: the original + row are preserved as
+evidence in state `quarantined`, the item is never listed/served/deletable via
+the app, quota is refunded, and a Sentry alert fires. Report quarantined content
+to the relevant authority (UK: the IWF, and police / CEOP) and remove it
+out-of-band once preserved.
 
 - Quick start: put comma-separated SHA-256 hex digests in `BLOCKED_SHA256`.
-- **[prod]** Replace the static list with a real hash-matching service (e.g.
-  PhotoDNA / NCMEC). Swap the body of `packages/worker/src/safety.ts`
-  (`checkContentSafety`) — the interface stays the same, so nothing else changes.
+- **[prod]** Replace the static list with a perceptual hash-matching service —
+  UK: the IWF hash list; elsewhere PhotoDNA / NCMEC. Swap the body of
+  `packages/worker/src/safety.ts` (`checkContentSafety`) — the interface stays
+  the same, so nothing else changes.
+- Ensure Sentry is configured (section 7) so quarantine alerts reach you.
+
+### Keeping sign-up invite-only — [do before sharing with anyone]
+
+Account creation (`POST /api/auth/sign-up/email`) is otherwise open to anyone.
+Set `ALLOWED_SIGNUP_EMAILS` to a comma-separated list of your friends' emails;
+only those addresses can register, everything else is rejected. Empty = open
+sign-up (dev only — a warning is logged on boot). Group membership stays gated by
+invite codes on top of this.
 
 ---
 
@@ -217,6 +242,7 @@ Neither app was compiled in this environment; expect minor version-drift fixes o
 first build.
 
 **iOS** (`apps/ios`):
+
 1. Install XcodeGen (`brew install xcodegen`), then:
    ```bash
    cd apps/ios && xcodegen generate && open Cameraderie.xcodeproj
@@ -227,6 +253,7 @@ first build.
 4. Build & run on a device/simulator.
 
 **Android** (`apps/android`):
+
 1. Open `apps/android` in Android Studio (it generates the Gradle wrapper on
    first sync).
 2. Set `API_BASE_URL` in `.../app/AppConfig.kt`. From the emulator use
@@ -241,6 +268,7 @@ upload. For paid tiers, add the RevenueCat purchase UI (section 6).
 ## 13. [todo] iOS background uploads + invite screen
 
 Follow-up coding work in `apps/ios`, deferred because it can't be compiled here:
+
 - Switch uploads from the foreground `URLSession` to a **background
   `URLSession`** so large transfers continue when the app is backgrounded (the
   plan calls for this; Android already uses WorkManager).
@@ -265,13 +293,13 @@ Follow-up coding work in `apps/ios`, deferred because it can't be compiled here:
 
 ## Quick reference
 
-| What | Where |
-| --- | --- |
-| All config | `.env` (template: `.env.example`) |
-| Install | `bun install` |
-| Run migrations | `bun run db:migrate` |
-| Dev servers | `bun run dev:api` / `dev:worker` / `dev:web` |
-| Full stack | `docker compose up --build` |
-| Production | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
-| Tests | `bun run test` |
-| Make admin | SQL `UPDATE user SET role='admin' …` |
+| What           | Where                                                                           |
+| -------------- | ------------------------------------------------------------------------------- |
+| All config     | `.env` (template: `.env.example`)                                               |
+| Install        | `bun install`                                                                   |
+| Run migrations | `bun run db:migrate`                                                            |
+| Dev servers    | `bun run dev:api` / `dev:worker` / `dev:web`                                    |
+| Full stack     | `docker compose up --build`                                                     |
+| Production     | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
+| Tests          | `bun run test`                                                                  |
+| Make admin     | SQL `UPDATE user SET role='admin' …`                                            |

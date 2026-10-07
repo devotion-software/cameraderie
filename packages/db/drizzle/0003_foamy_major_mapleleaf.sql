@@ -1,0 +1,1 @@
+ALTER TABLE `media` MODIFY COLUMN `state` enum('pending','uploading','processing','ready','failed','quarantined') NOT NULL DEFAULT 'pending';

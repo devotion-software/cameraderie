@@ -18,10 +18,11 @@ import {
   type MediaKind,
 } from '@cameraderie/shared';
 import { getDb } from './db.js';
-import { downloadToFile, putObject, deleteObjects } from './r2.js';
+import { downloadToFile, putObject } from './r2.js';
 import { probe, extractFrame, transcodePreview } from './ffmpeg.js';
 import { decodeRawToTiff } from './libraw.js';
 import { checkContentSafety } from './safety.js';
+import { captureAlert } from './observability.js';
 import { newId } from './ids.js';
 
 // Allow very large images (RAW/panoramas) through libvips.
@@ -68,18 +69,32 @@ export async function processMedia(mediaId: string): Promise<void> {
     }
 
     // Content-safety: reject known-bad hashes before generating derivatives.
-    // On a match we purge the original + row and stop — nothing is published.
+    // On a match we QUARANTINE rather than delete: the original + row are
+    // preserved as evidence, the item is never published or served, and an
+    // operator is alerted so they can report it to the relevant authority
+    // (in the UK: the IWF, and the police/CEOP for a crime) and then remove it
+    // once preserved. We deliberately do NOT throw here — a thrown error would
+    // be caught upstream and flip the state to 'failed', undoing the
+    // quarantine. We return normally with the row left in 'quarantined'.
     const verdict = await checkContentSafety(actual);
     if (verdict.blocked) {
-      console.warn(`[worker] media ${mediaId} blocked: ${verdict.reason}`);
-      await deleteObjects([row.objectKey]).catch(() => {});
-      await db.delete(media).where(eq(media.id, mediaId));
-      // Refund the quota charged at upload-complete (bytes are 0-floored).
+      console.error(`[worker] media ${mediaId} QUARANTINED: ${verdict.reason}`);
+      await db.update(media).set({ state: 'quarantined' }).where(eq(media.id, mediaId));
+      // Refund the quota charged at upload-complete (bytes are 0-floored); the
+      // preserved original is storage we absorb as the operator, not the user.
       await db
         .update(user)
         .set({ usedBytes: sql`GREATEST(0, ${user.usedBytes} - ${row.sizeBytes})` })
         .where(eq(user.id, row.uploaderId));
-      throw new PermanentError(`content-safety block for ${mediaId}: ${verdict.reason}`);
+      captureAlert(`content-safety quarantine: media ${mediaId}`, {
+        mediaId,
+        groupId: row.groupId,
+        uploaderId: row.uploaderId,
+        reason: verdict.reason,
+        objectKey: row.objectKey,
+        sha256: actual,
+      });
+      return;
     }
 
     // Derivatives strip EXIF/GPS by default (sharp drops metadata unless told
@@ -120,7 +135,12 @@ async function processImageOrRaw(
   keepMetadata: boolean,
 ): Promise<Dims> {
   if (row.kind === 'raw') return processRaw(row, originalPath, workdir, keepMetadata);
-  const { width, height } = await makeImageDerivatives(originalPath, row.id, row.kind, keepMetadata);
+  const { width, height } = await makeImageDerivatives(
+    originalPath,
+    row.id,
+    row.kind,
+    keepMetadata,
+  );
   return { width, height, durationMs: null };
 }
 
@@ -149,7 +169,12 @@ async function processRaw(
 
   // 2. sharp/libvips directly on the original.
   try {
-    const { width, height } = await makeImageDerivatives(originalPath, row.id, row.kind, keepMetadata);
+    const { width, height } = await makeImageDerivatives(
+      originalPath,
+      row.id,
+      row.kind,
+      keepMetadata,
+    );
     return { width, height, durationMs: null };
   } catch (err) {
     console.warn(`[worker] sharp failed on RAW ${row.id}, trying ffmpeg embedded preview`, err);
@@ -181,7 +206,15 @@ async function processVideo(row: Media, originalPath: string, workdir: string): 
     .webp({ quality: 80 })
     .toBuffer();
   await putObject(thumbnailKey(row.id), thumb, 'image/webp');
-  await upsertDerivative(row.id, 'thumbnail', thumbnailKey(row.id), 'image/webp', thumb.length, null, null);
+  await upsertDerivative(
+    row.id,
+    'thumbnail',
+    thumbnailKey(row.id),
+    'image/webp',
+    thumb.length,
+    null,
+    null,
+  );
 
   // Streamable preview: scaled H.264 MP4 with faststart.
   const previewPath = join(workdir, 'preview.mp4');
@@ -209,7 +242,15 @@ async function makeImageDerivatives(
     .webp({ quality: 80 })
     .toBuffer();
   await putObject(thumbnailKey(mediaId), thumb, 'image/webp');
-  await upsertDerivative(mediaId, 'thumbnail', thumbnailKey(mediaId), 'image/webp', thumb.length, null, null);
+  await upsertDerivative(
+    mediaId,
+    'thumbnail',
+    thumbnailKey(mediaId),
+    'image/webp',
+    thumb.length,
+    null,
+    null,
+  );
 
   let previewPipeline = sharp(imagePath, { failOn: 'none' })
     .rotate()
@@ -234,7 +275,17 @@ async function upsertDerivative(
 ): Promise<void> {
   await getDb()
     .insert(derivatives)
-    .values({ id: newId(), mediaId, kind, state: 'ready', objectKey, mimeType, sizeBytes, width, height })
+    .values({
+      id: newId(),
+      mediaId,
+      kind,
+      state: 'ready',
+      objectKey,
+      mimeType,
+      sizeBytes,
+      width,
+      height,
+    })
     .onDuplicateKeyUpdate({
       set: { state: 'ready', objectKey, mimeType, sizeBytes, width, height },
     });

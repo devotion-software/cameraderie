@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { derivatives, favourites, media } from '@cameraderie/db';
 import { getDb } from '../db.js';
 import { requireMembership, requireUser } from '../guards.js';
@@ -24,10 +24,13 @@ export default async function mediaRoutes(app: FastifyInstance) {
       const limit = clampLimit(req.query.limit);
       const before = req.query.before ? new Date(req.query.before) : null;
 
+      // Quarantined items are never listed — they exist only as preserved
+      // evidence (see the worker's content-safety path).
+      const notQuarantined = ne(media.state, 'quarantined');
       const where =
         before && !Number.isNaN(before.getTime())
-          ? and(eq(media.groupId, req.params.id), lt(media.createdAt, before))
-          : eq(media.groupId, req.params.id);
+          ? and(eq(media.groupId, req.params.id), lt(media.createdAt, before), notQuarantined)
+          : and(eq(media.groupId, req.params.id), notQuarantined);
 
       const rows = await db
         .select()
@@ -80,6 +83,9 @@ export default async function mediaRoutes(app: FastifyInstance) {
     const me = await requireUser(req);
     const [row] = await db.select().from(media).where(eq(media.id, req.params.id)).limit(1);
     if (!row) throw notFound('Media not found');
+    // Quarantined evidence must be preserved — it can't be deleted through the
+    // app; an operator removes it out-of-band once it's been reported/preserved.
+    if (row.state === 'quarantined') throw notFound('Media not found');
 
     const membership = await requireMembership(row.groupId, me.id);
     const isUploader = row.uploaderId === me.id;
@@ -101,6 +107,9 @@ async function loadVisibleMedia(db: ReturnType<typeof getDb>, id: string, userId
   const [row] = await db.select().from(media).where(eq(media.id, id)).limit(1);
   if (!row) throw notFound('Media not found');
   await requireMembership(row.groupId, userId);
+  // Quarantined originals/derivatives are never served to anyone — this guards
+  // media detail, download, and preview in one place.
+  if (row.state === 'quarantined') throw notFound('Media not found');
   return row;
 }
 

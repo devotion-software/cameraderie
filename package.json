@@ -13,6 +13,7 @@
     "dev:web": "bun run --filter='@cameraderie/web' dev",
     "db:generate": "bun run --filter='@cameraderie/db' generate",
     "db:migrate": "bun run --filter='@cameraderie/db' migrate",
+    "db:seed": "bun run --filter='@cameraderie/api' seed",
     "format": "prettier --write \"**/*.{ts,js,svelte,json,md}\"",
     "lint": "prettier --check \"**/*.{ts,js,svelte,json,md}\"",
     "test": "vitest run"

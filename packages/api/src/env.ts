@@ -10,6 +10,12 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(16),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
+  // Comma-separated allowlist of email addresses permitted to create an
+  // account. When set, every other sign-up is rejected — this is how the app
+  // stays invite-only/friends-only. When empty, sign-up is OPEN (dev default);
+  // set it before any public-facing deployment.
+  ALLOWED_SIGNUP_EMAILS: z.string().optional(),
+
   R2_ACCOUNT_ID: z.string().min(1),
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),
@@ -17,7 +23,11 @@ const envSchema = z.object({
   R2_ENDPOINT: z.string().url().optional(),
   R2_PRESIGN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 
-  FREE_TIER_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024 * 1024),
+  FREE_TIER_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1024 * 1024 * 1024),
 
   // --- Billing (all optional; billing is disabled until configured) ---
   STRIPE_SECRET_KEY: z.string().optional(),

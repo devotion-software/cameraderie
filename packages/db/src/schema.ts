@@ -161,7 +161,16 @@ export const media = mysqlTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     kind: mysqlEnum('kind', ['image', 'raw', 'video']).notNull(),
-    state: mysqlEnum('state', ['pending', 'uploading', 'processing', 'ready', 'failed'])
+    // 'quarantined' = a content-safety match: the original + row are preserved
+    // (as evidence) but never published or served. Set only by the worker.
+    state: mysqlEnum('state', [
+      'pending',
+      'uploading',
+      'processing',
+      'ready',
+      'failed',
+      'quarantined',
+    ])
       .notNull()
       .default('pending'),
     filename: varchar('filename', { length: 255 }).notNull(),

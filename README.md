@@ -27,56 +27,96 @@ Cloudflare R2  ◀─── originals + derivatives ─────────�
 
 ## Packages
 
-| Package | What it is |
-| --- | --- |
-| `packages/shared` | Shared TS types, zod DTOs, media classification, R2 key conventions, plans |
-| `packages/db` | Drizzle schema for MariaDB (+ Better Auth tables) and migrations |
-| `packages/api` | Fastify API: auth, groups/invites, 3-step upload broker, media, favourites, quota, billing webhook |
+| Package           | What it is                                                                                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/shared` | Shared TS types, zod DTOs, media classification, R2 key conventions, plans                                                                                           |
+| `packages/db`     | Drizzle schema for MariaDB (+ Better Auth tables) and migrations                                                                                                     |
+| `packages/api`    | Fastify API: auth, groups/invites, 3-step upload broker, media, favourites, quota, billing webhook                                                                   |
 | `packages/worker` | BullMQ worker: checksum verify, content-safety scan, `sharp` thumbnails, FFmpeg video previews, libraw RAW decoding, hourly R2 reconciliation + stale-upload sweeper |
-| `packages/web` | SvelteKit client (SPA): auth, group feed, direct-to-R2 upload, favourite, download, settings, admin moderation |
-| `apps/ios` | Native SwiftUI client (XcodeGen). True-original fetch via `PHAssetResource`, bearer auth, R2 multipart upload |
-| `apps/android` | Native Kotlin/Compose client. Original bytes via `ContentResolver`/MediaStore, WorkManager uploads, bearer auth |
+| `packages/web`    | SvelteKit client (SPA): auth, group feed, direct-to-R2 upload, favourite, download, settings, admin moderation                                                       |
+| `apps/ios`        | Native SwiftUI client (XcodeGen). True-original fetch via `PHAssetResource`, bearer auth, R2 multipart upload                                                        |
+| `apps/android`    | Native Kotlin/Compose client. Original bytes via `ContentResolver`/MediaStore, WorkManager uploads, bearer auth                                                      |
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.1, Docker (for MariaDB + Redis)
-- A Cloudflare R2 bucket + API token (Access Key / Secret) for real uploads
+- [Bun](https://bun.sh) ≥ 1.1, Docker (for MariaDB + Redis + MinIO)
+- `make` (standard on macOS/Linux) — the repo ships a [Makefile](./Makefile) that
+  wraps the common tasks; run `make help` to list them
 - `ffmpeg` + `libraw` on the worker host (bundled in the worker Docker image)
+- For local dev you **don't** need a Cloudflare R2 account — a local,
+  S3-compatible MinIO runs via Docker. A real R2 bucket + API token is only
+  needed for staging/production uploads.
 
 ## Quick start (local dev)
 
 ```bash
-bun install
+make install                  # bun install
 
 # 1. Config
-cp .env.example .env          # fill in BETTER_AUTH_SECRET + R2_* (see below)
+cp .env.example .env          # set BETTER_AUTH_SECRET; uncomment the MinIO R2_* block
 openssl rand -base64 32       # value for BETTER_AUTH_SECRET
 
-# 2. Infra
-docker compose up -d mariadb redis
+# 2. Infra — MariaDB + Redis + MinIO (local S3), with the bucket auto-created
+make up
 
-# 3. Database
-bun run db:generate   # (already committed; re-run after schema changes)
-bun run db:migrate
+# 3. Database — apply schema, then seed a demo account
+make migrate
+make seed                     # demo@cameraderie.local / password123
 
-# 4. Run the services (separate terminals)
-bun run dev:api      # http://localhost:3000
-bun run dev:worker
-bun run dev:web      # http://localhost:5173
+# 4. Run api + worker + web together (Ctrl-C stops all)
+make dev
 ```
 
-Set `packages/web/.env` → `PUBLIC_API_URL=http://localhost:3000` (a copy is
-already provided).
+Then open the web client at **http://localhost:5173** and sign in with the
+seeded account (or sign up fresh). The API is on `:3000`; the MinIO console is on
+**http://localhost:9001** (`minioadmin` / `minioadmin`) — `make console` opens it.
+
+**Using local MinIO storage.** In `.env`, uncomment the local-S3 block so the app
+points at MinIO instead of real R2:
+
+```bash
+R2_ACCOUNT_ID=local
+R2_ACCESS_KEY_ID=minioadmin
+R2_SECRET_ACCESS_KEY=minioadmin
+R2_ENDPOINT=http://localhost:9000
+```
+
+`R2_ENDPOINT` must be what the **browser** reaches, because uploads are presigned
+against that exact host and go straight there. `localhost:9000` is correct when
+you run api/worker on the host (as `make dev` does). To instead run the _whole_
+stack in containers against MinIO, add `127.0.0.1 minio` to `/etc/hosts` and use
+`R2_ENDPOINT=http://minio:9000` so one hostname resolves on both sides.
+
+`packages/web/.env` already sets `PUBLIC_API_URL=http://localhost:3000`.
+
+## Common commands
+
+`make help` prints the full list. The ones you'll reach for most:
+
+| Command                                       | What it does                                                                      |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `make up` / `make stop`                       | Start / stop local infra (MariaDB + Redis + MinIO)                                |
+| `make dev`                                    | Build the shared libs, then run api + worker + web with live reload               |
+| `make migrate` / `make seed`                  | Apply migrations / seed the demo user + group                                     |
+| `make generate`                               | Generate a new Drizzle migration after a schema change                            |
+| `make reset-db`                               | Wipe the DB volume, recreate, migrate, and seed from scratch                      |
+| `make build` / `make test` / `make typecheck` | Build all packages / run Vitest / type-check                                      |
+| `make lint` / `make format`                   | Prettier check / write                                                            |
+| `make web-dev` / `make web-build`             | Run / build only the web client                                                   |
+| `make ios` / `make android-build`             | Generate the Xcode project / assemble the Android APK                             |
+| `make clean`                                  | Remove containers **and** volumes (destroys local db + MinIO data) + build output |
 
 ## Full stack with Docker Compose
 
 ```bash
-cp .env.example .env   # fill in secrets
+cp .env.example .env   # fill in secrets (and real R2_* for non-dev storage)
 docker compose up --build
 ```
 
-Brings up MariaDB, Redis, the API (runs migrations on boot), the worker, and the
-web client. The API is on `:3000`, web on `:5173`.
+Brings up MariaDB, Redis, MinIO, the API (runs migrations on boot), the worker,
+and the web client. The API is on `:3000`, web on `:5173`. The app containers
+default to the `R2_*` values in `.env`; see the MinIO note above if you point
+them at local MinIO rather than real R2.
 
 ## Cloudflare R2 setup
 
@@ -99,6 +139,7 @@ web client. The API is on `:3000`, web on `:5173`.
    ```
 
    Add your production web origin alongside `localhost` when you deploy.
+
 3. Keep the bucket **private** — all access is via short-lived presigned URLs.
 
 ## API surface (summary)
@@ -127,7 +168,7 @@ cookies): sign-in returns a token stored in the iOS Keychain / Android
 EncryptedSharedPreferences and sent as `Authorization: Bearer …`.
 
 - **iOS** (`apps/ios`) — SwiftUI, iOS 17+. `xcodegen generate && open
-  Cameraderie.xcodeproj`, set a signing team, point `AppConfig.apiBaseURL` at
+Cameraderie.xcodeproj`, set a signing team, point `AppConfig.apiBaseURL` at
   the backend. Fetches the true original via `PHAssetResource`.
 - **Android** (`apps/android`) — Kotlin + Compose. Open in Android Studio (it
   generates the Gradle wrapper on first sync), set `AppConfig.API_BASE_URL`
@@ -186,10 +227,20 @@ end-to-end; the native apps need Xcode / Android Studio to build.
 - **Error tracking** — set `SENTRY_DSN` to capture 5xx errors in the API and
   terminal job failures in the worker (disabled when unset).
 - **Content safety** — the worker checks each original's SHA-256 against a
-  denylist (`BLOCKED_SHA256`) before generating derivatives; a match purges the
-  upload and refunds quota. Swap the denylist for a hash-matching service (e.g.
-  PhotoDNA / NCMEC) for a public launch — the interface in `worker/src/safety.ts`
-  stays the same.
+  denylist (`BLOCKED_SHA256`) before generating derivatives. A match
+  **quarantines** the upload: the original and its row are preserved as evidence
+  (state `quarantined`), the item is never listed, served, or deletable through
+  the app, quota is refunded, and an operator alert is raised via Sentry. Report
+  it to the relevant authority (in the UK, the [IWF](https://www.iwf.org.uk/) and
+  the police / CEOP) and remove it out-of-band once preserved. Swap the denylist
+  for a perceptual hash-matching service for a public launch (UK: the IWF hash
+  list; elsewhere PhotoDNA / NCMEC) — the matcher in `worker/src/safety.ts` stays
+  the same; only `BLOCKED_SHA256` → service call changes.
+- **Invite-only sign-up** — set `ALLOWED_SIGNUP_EMAILS` (comma-separated) so only
+  listed emails can create an account; every other sign-up is rejected. Leaving
+  it empty leaves sign-up **open** (dev default) and logs a warning — set it
+  before any shared/public deployment. Group membership is additionally gated by
+  invite codes.
 
 ## Status & what's next
 

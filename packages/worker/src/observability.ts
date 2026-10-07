@@ -13,3 +13,12 @@ export function initObservability(): void {
 export function captureError(err: unknown): void {
   if (enabled) Sentry.captureException(err);
 }
+
+/**
+ * Raise a high-priority operator alert that isn't an exception — used for
+ * content-safety quarantines, which must reach a human even though the job
+ * itself "succeeded" (the upload was handled, just not published).
+ */
+export function captureAlert(message: string, context?: Record<string, unknown>): void {
+  if (enabled) Sentry.captureMessage(message, { level: 'fatal', extra: context });
+}
