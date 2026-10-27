@@ -16,7 +16,8 @@
     "db:seed": "bun run --filter='@cameraderie/api' seed",
     "format": "prettier --write \"**/*.{ts,js,svelte,json,md}\"",
     "lint": "prettier --check \"**/*.{ts,js,svelte,json,md}\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "DATABASE_URL=\"$TEST_DATABASE_URL\" bun run --filter='@cameraderie/db' migrate && vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

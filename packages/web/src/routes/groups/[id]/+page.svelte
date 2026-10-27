@@ -79,16 +79,17 @@
     const files = Array.from(input.files ?? []);
     input.value = '';
     for (const file of files) {
-      const task: UploadTask = { name: file.name, fraction: 0 };
-      uploads = [...uploads, task];
+      uploads = [...uploads, { name: file.name, fraction: 0 }];
+      // Index into the reactive `uploads` array itself (not the plain object
+      // literal above) — $state proxifies the array on assignment, so a
+      // closure over the pre-proxy object never triggers a re-render.
+      const idx = uploads.length - 1;
       try {
         await uploadFile(groupId, file, (f) => {
-          task.fraction = f;
-          uploads = [...uploads];
+          uploads[idx].fraction = f;
         });
       } catch (err) {
-        task.error = err instanceof Error ? err.message : 'Upload failed';
-        uploads = [...uploads];
+        uploads[idx].error = err instanceof Error ? err.message : 'Upload failed';
       }
     }
     await refreshFeed();

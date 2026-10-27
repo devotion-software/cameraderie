@@ -32,6 +32,41 @@ jobs:
       - name: Build all
         run: bun run build
 
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: cameraderie_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    env:
+      TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/cameraderie_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Build shared + db (test imports resolve to their dist)
+        run: |
+          bun run --filter='@cameraderie/shared' build
+          bun run --filter='@cameraderie/db' build
+
+      - name: Integration tests (real MariaDB)
+        run: bun run test:integration
+
   docker:
     runs-on: ubuntu-latest
     steps:

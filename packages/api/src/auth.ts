@@ -20,6 +20,15 @@ const signupAllowlist = new Set(
 );
 
 if (signupAllowlist.size === 0) {
+  // Fail closed in production: an empty allowlist means OPEN registration, which
+  // silently defeats the invite-only access-control model this app's safety relies
+  // on. A forgotten env var must stop the server, not quietly open sign-up.
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      '[auth] ALLOWED_SIGNUP_EMAILS is empty in production — refusing to start with ' +
+        'OPEN sign-up. Set it to the permitted emails (comma-separated) before deploying.',
+    );
+  }
   console.warn(
     '[auth] ALLOWED_SIGNUP_EMAILS is empty — account sign-up is OPEN. ' +
       'Set it to your friends’ emails before any public deployment.',
@@ -55,6 +64,17 @@ export const auth = betterAuth({
         // `auth.api.signUpEmail` used by the seed script), so there is no way
         // to register an account whose email isn't explicitly permitted.
         before: async (userData) => {
+          // Age + legal gate (always enforced, independent of the allowlist): the
+          // client must send `acceptedTermsAt`, set only when the user confirms
+          // they are 18 or over and accepts the Terms + Privacy Policy. This is a
+          // self-attestation record, not identity-grade age verification.
+          const accepted = (userData as { acceptedTermsAt?: unknown }).acceptedTermsAt;
+          if (!accepted) {
+            throw new APIError('BAD_REQUEST', {
+              message:
+                'You must confirm you are 18 or over and accept the Terms and Privacy Policy.',
+            });
+          }
           if (signupAllowlist.size === 0) return; // open sign-up (see warning above)
           const email = (userData.email ?? '').toLowerCase();
           if (!signupAllowlist.has(email)) {
@@ -71,6 +91,9 @@ export const auth = betterAuth({
       usedBytes: { type: 'number', required: false, input: false, defaultValue: 0 },
       plan: { type: 'string', required: false, input: false, defaultValue: 'free' },
       role: { type: 'string', required: false, input: false, defaultValue: 'user' },
+      // Accepted from the sign-up body (see the create.before gate). The client
+      // sends the current timestamp only once the 18+/Terms checkboxes are ticked.
+      acceptedTermsAt: { type: 'date', required: false, input: true },
     },
   },
   advanced: {

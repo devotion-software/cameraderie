@@ -31,7 +31,10 @@ export function getDerivativesQueue(): Queue<DerivativeJob> {
 
 /** Enqueue derivative generation for a media id once its original is in R2. */
 export async function enqueueDerivatives(mediaId: string): Promise<void> {
-  await getDerivativesQueue().add('generate', { mediaId }, { jobId: `media:${mediaId}` });
+  // BullMQ reserves colons in custom job ids for its repeatable-job encoding
+  // (it requires exactly 3 ":"-separated parts), so a plain "media:<id>" id
+  // throws "Custom Id cannot contain :" — use a dash instead.
+  await getDerivativesQueue().add('generate', { mediaId }, { jobId: `media-${mediaId}` });
 }
 
 export async function closeQueue(): Promise<void> {

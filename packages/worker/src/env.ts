@@ -17,6 +17,15 @@ const envSchema = z.object({
   // libraw's dcraw_emu binary, for decoding camera RAW. Defaults to PATH.
   DCRAW_EMU_PATH: z.string().optional(),
 
+  // Hard wall-clock timeouts (seconds) for each external media tool. A malformed
+  // or adversarial upload that hangs or runs away is killed (SIGKILL) rather than
+  // tying up a worker slot forever. ffmpeg additionally gets a CPU `-timelimit`
+  // and a thread cap so one job can't saturate the box.
+  FFMPEG_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(300),
+  FFPROBE_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
+  DCRAW_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(180),
+  FFMPEG_THREADS: z.coerce.number().int().positive().default(2),
+
   SENTRY_DSN: z.string().optional(),
   // Comma-separated SHA-256 hex digests to block on upload (content-safety
   // denylist). A production setup would query a hash service instead.

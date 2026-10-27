@@ -26,9 +26,10 @@ building the native apps. Work top-to-bottom. Items are marked:
    local dev** — sign-up is open and the API logs a warning. Set it to a
    comma-separated allowlist (keeping the app invite-only) **before you share
    the app**.
-5. **Local storage (dev):** uncomment the MinIO `R2_*` block in `.env.example`
-   (`R2_ENDPOINT=http://localhost:9000`, `minioadmin`/`minioadmin`) so dev runs
-   against the local MinIO container instead of real R2 — see section 2.
+5. **Local storage (dev):** uncomment the Garage `R2_*` block in `.env.example`
+   (`R2_ENDPOINT=http://localhost:3900`, access key `GKdeadbeefdeadbeefdeadbeef` /
+   secret `deadbeef...` — dev-only placeholder creds, see the file) so dev runs
+   against the local Garage container instead of real R2 — see section 2.
 6. Leave Stripe/RevenueCat/Sentry/BLOCKED_SHA256 blank for now (sections 5–8).
 
 **Never commit `.env`.** It's git-ignored already.
@@ -39,11 +40,12 @@ building the native apps. Work top-to-bottom. Items are marked:
 
 All media bytes live here; the app only brokers presigned URLs.
 
-> **Local dev doesn't need R2.** `make up` starts a local, S3-compatible MinIO
-> (console at http://localhost:9001, `minioadmin`/`minioadmin`) and auto-creates
-> the bucket with the right CORS. Point the app at it with the MinIO `R2_*` block
-> from `.env.example` (section 1.5). Do the steps below only when you want real
-> R2 for staging/production.
+> **Local dev doesn't need R2.** `make up` starts a local, S3-compatible
+> [Garage](https://garagehq.deuxfleurs.fr/) server (S3 API at
+> http://localhost:3900) and auto-creates the bucket, access key, and CORS
+> rule. Point the app at it with the Garage `R2_*` block from `.env.example`
+> (section 1.5). Do the steps below only when you want real R2 for
+> staging/production.
 
 1. In the Cloudflare dashboard → **R2** → create a bucket (e.g. `cameraderie`).
 2. **R2 → Manage API Tokens** → create an API token with Object Read & Write on
@@ -82,7 +84,7 @@ The [Makefile](./Makefile) wraps the common tasks — `make help` lists them all
 ```bash
 make install          # bun install
 
-make up               # start MariaDB + Redis + MinIO (local S3), bucket auto-created
+make up               # start MariaDB + Redis + Garage (local S3), bucket auto-created
 make migrate          # apply the DB schema (safe to re-run)
 make seed             # optional: a demo login (demo@cameraderie.local / password123)
 
@@ -92,11 +94,11 @@ make dev              # build the shared libs, then run api + worker + web (Ctrl
 Open http://localhost:5173, sign in with the seeded account (or sign up — allowed
 in dev since `ALLOWED_SIGNUP_EMAILS` is blank), create a group, and upload a
 photo. If uploads fail against **real R2**, re-check the CORS rule (step 2.4);
-against local MinIO it's configured for you.
+against local Garage it's configured for you.
 
 Other handy targets: `make stop` (stop infra), `make reset-db` (wipe + migrate +
 seed), `make test`, `make typecheck`, `make lint` / `make format`,
-`make console` (open the MinIO console).
+`make console` (list objects in the local Garage bucket — no web console).
 
 **Full-stack alternative** (builds images, runs migrations on boot):
 
@@ -308,7 +310,7 @@ Follow-up coding work in `apps/ios`, deferred because it can't be compiled here:
 | All config     | `.env` (template: `.env.example`)                                               |
 | List tasks     | `make help`                                                                     |
 | Install        | `make install`                                                                  |
-| Start infra    | `make up` (MariaDB + Redis + MinIO) / `make stop`                               |
+| Start infra    | `make up` (MariaDB + Redis + Garage) / `make stop`                              |
 | Run migrations | `make migrate` (`make generate` for a new one)                                  |
 | Seed demo data | `make seed`                                                                     |
 | Dev servers    | `make dev` (api + worker + web together)                                        |

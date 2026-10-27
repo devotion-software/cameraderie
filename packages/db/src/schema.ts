@@ -38,6 +38,12 @@ export const user = mysqlTable('user', {
   plan: varchar('plan', { length: 32 }).notNull().default('free'),
   /** Site-wide role: 'user' or 'admin' (admins can review reports / take down media). */
   role: varchar('role', { length: 32 }).notNull().default('user'),
+  /**
+   * When the user confirmed they are 18+ and accepted the Terms + Privacy Policy
+   * at sign-up. Null for accounts created before this gate existed. Kept as a
+   * record of consent (UK GDPR / Online Safety Act age assurance).
+   */
+  acceptedTermsAt: timestamp('accepted_terms_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
 });
@@ -253,6 +259,19 @@ export const subscriptions = mysqlTable(
   (t) => [uniqueIndex('subscriptions_user_uq').on(t.userId)],
 );
 
+/**
+ * Idempotency ledger for provider billing webhooks. The primary key is
+ * `${provider}:${eventId}` (Stripe `evt_…` / RevenueCat event id). An event is
+ * recorded in the SAME transaction that applies its entitlement, so a replayed
+ * or duplicated delivery hits the PK and the whole apply rolls back — a captured
+ * webhook can't be re-fired to re-grant a plan.
+ */
+export const webhookEvents = mysqlTable('webhook_events', {
+  id: varchar('id', { length: 160 }).primaryKey(),
+  provider: varchar('provider', { length: 32 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const reports = mysqlTable(
   'reports',
   {
@@ -329,6 +348,7 @@ export const schema = {
   favourites,
   subscriptions,
   reports,
+  webhookEvents,
   userRelations,
   groupsRelations,
   membershipsRelations,
@@ -346,3 +366,4 @@ export type Derivative = typeof derivatives.$inferSelect;
 export type Favourite = typeof favourites.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type WebhookEvent = typeof webhookEvents.$inferSelect;

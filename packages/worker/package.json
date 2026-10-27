@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun --env-file=../../.env --watch src/index.ts",
     "start": "bun dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

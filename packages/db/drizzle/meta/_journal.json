@@ -29,6 +29,20 @@
       "when": 1791382569897,
       "tag": "0003_foamy_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1791388130115,
+      "tag": "0004_lowly_omega_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1791450710341,
+      "tag": "0005_slippery_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

@@ -92,8 +92,11 @@ export const completedPart = z.object({
   etag: z.string().min(1),
 });
 
+// The client intentionally sends an empty array (see upload.ts) — the
+// authoritative part list is re-read from R2/the completion handler, not
+// trusted from the request body. `parts` is accepted for backward-compat only.
 export const completeUploadBody = z.object({
-  parts: z.array(completedPart).min(1),
+  parts: z.array(completedPart).default([]),
 });
 export type CompleteUploadBody = z.infer<typeof completeUploadBody>;
 

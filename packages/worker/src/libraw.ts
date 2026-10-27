@@ -16,20 +16,27 @@ function dcrawBin(): string {
  * balance). Returns the output path.
  */
 export async function decodeRawToTiff(inputPath: string): Promise<string> {
-  await run(dcrawBin(), ['-T', '-o', '1', '-w', inputPath]);
+  await run(dcrawBin(), ['-T', '-o', '1', '-w', inputPath], loadEnv().DCRAW_TIMEOUT_SECONDS);
   const out = `${inputPath}.tiff`;
   await access(out); // throws if dcraw_emu produced nothing
   return out;
 }
 
-function run(bin: string, args: string[]): Promise<void> {
+function run(bin: string, args: string[], timeoutSeconds: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    // Wall-clock kill: a pathological RAW (huge demosaic / hang) can't pin a slot.
+    const child = spawn(bin, args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      timeout: timeoutSeconds * 1000,
+      killSignal: 'SIGKILL',
+    });
     let stderr = '';
     child.stderr.on('data', (d) => (stderr += d.toString()));
     child.on('error', reject);
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       if (code === 0) resolve();
+      else if (signal)
+        reject(new Error(`${bin} killed by ${signal} (timeout ${timeoutSeconds}s): ${stderr.slice(-500)}`));
       else reject(new Error(`${bin} exited ${code}: ${stderr.slice(-500)}`));
     });
   });

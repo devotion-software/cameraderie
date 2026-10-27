@@ -30,6 +30,12 @@ function s3(): S3Client {
       accessKeyId: env.R2_ACCESS_KEY_ID,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     },
+    // SDK v3's newer default ("WHEN_SUPPORTED") signs presigned part-upload
+    // URLs with a placeholder all-zero CRC32 checksum param it can't actually
+    // compute ahead of time. R2 ignores it; Garage (local dev) validates it
+    // strictly and rejects every upload. "WHEN_REQUIRED" restores the old,
+    // widely-compatible behavior.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
   });
   return client;
 }

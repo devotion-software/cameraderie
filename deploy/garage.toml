@@ -1,0 +1,29 @@
+# Local-dev config for Garage (S3-compatible storage), used in place of
+# MinIO — MinIO's Docker images now require a login to pull at all. See
+# docker-compose.yml's `garage` service and README.md for context.
+#
+# This file is dev-only scaffolding: the secrets below are placeholders,
+# fine to commit, and never used in production (real Cloudflare R2 is used
+# there instead — see docker-compose.prod.yml).
+metadata_dir = "/data/meta"
+data_dir = "/data/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "4242424242424242424242424242424242424242424242424242424242424242"
+
+[s3_api]
+# Must be "auto" — the app's S3 client hardcodes region: 'auto' to match
+# Cloudflare R2's convention (see packages/api/src/r2.ts), and SigV4 rejects
+# a mismatched region in the signed request's credential scope.
+s3_region = "auto"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "dev-admin-token"
+metrics_token = "dev-metrics-token"

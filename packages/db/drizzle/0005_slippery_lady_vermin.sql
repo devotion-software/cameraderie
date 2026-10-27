@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `accepted_terms_at` timestamp;

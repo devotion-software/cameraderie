@@ -11,6 +11,11 @@
   let password = $state('');
   let error = $state('');
   let busy = $state(false);
+  // Age (18+) + legal consent, required to sign up. The server also enforces this
+  // (it rejects a sign-up with no acceptedTermsAt — see api auth.ts).
+  let confirmAdult = $state(false);
+  let agreeTerms = $state(false);
+  const canSubmit = $derived(mode === 'signin' || (confirmAdult && agreeTerms));
 
   $effect(() => {
     if ($session.data?.user) goto(redirectTo, { replaceState: true });
@@ -24,7 +29,13 @@
       const res =
         mode === 'signin'
           ? await signIn.email({ email, password })
-          : await signUp.email({ email, password, name });
+          : await signUp.email({
+              email,
+              password,
+              name,
+              // Recorded as the consent timestamp (18+ / Terms + Privacy accepted).
+              acceptedTermsAt: new Date().toISOString(),
+            } as Parameters<typeof signUp.email>[0]);
       if (res.error) {
         error = res.error.message ?? 'Something went wrong';
       } else {
@@ -66,9 +77,23 @@
         />
       </label>
 
+      {#if mode === 'signup'}
+        <label class="check">
+          <input type="checkbox" bind:checked={confirmAdult} />
+          <span>I confirm I am 18 years of age or older.</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" bind:checked={agreeTerms} />
+          <span>
+            I agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Service</a>
+            and <a href="/legal/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+          </span>
+        </label>
+      {/if}
+
       {#if error}<p class="error">{error}</p>{/if}
 
-      <button class="btn" type="submit" disabled={busy}>
+      <button class="btn" type="submit" disabled={busy || !canSubmit}>
         {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
       </button>
     </form>
@@ -109,5 +134,16 @@
     margin-top: 16px;
     text-align: center;
     font-size: 14px;
+  }
+  .check {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .check input {
+    margin-top: 2px;
+    flex: 0 0 auto;
   }
 </style>

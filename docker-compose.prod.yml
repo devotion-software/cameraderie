@@ -1,11 +1,21 @@
 # Production overlay: adds a Caddy reverse proxy with automatic HTTPS in front
-# of the API and web app. Use together with the base file:
+# of the API and web app, and hardens the data-tier services. Use with the base:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
 # Set API_DOMAIN + WEB_DOMAIN in .env, and point API_URL/WEB_URL at the https
-# domains so Better Auth cookies and CORS use the real origins. For a hardened
-# box, also firewall the 3000/5173/3306/6379 ports so only Caddy is public.
+# domains so Better Auth cookies and CORS use the real origins.
+#
+# Exposure hardening (overrides the base file's dev-friendly port mappings):
+#   * MariaDB, Redis and Garage are rebound to 127.0.0.1 so they are NOT reachable
+#     from the internet. NOTE: Docker's published ports write their own iptables
+#     rules and BYPASS UFW, so binding to loopback here — not a host firewall — is
+#     what actually keeps them private. Only Caddy (80/443) and, if you keep them,
+#     the api/web ports remain public.
+#   * Redis gets a mandatory password (REDIS_PASSWORD); the app is rewired to
+#     authenticate. Compose fails to start if REDIS_PASSWORD is unset.
+#   * Garage is dev scaffolding — production uses real Cloudflare R2, so you can
+#     drop the garage/garage-init services entirely. Until then it is loopback-only.
 
 services:
   caddy:
@@ -24,6 +34,46 @@ services:
     depends_on:
       - api
       - web
+
+  mariadb:
+    # Loopback-only: the api/worker reach it over the compose network by service
+    # name, so no public host port is needed.
+    ports:
+      - '127.0.0.1:3306:3306'
+
+  redis:
+    # Require a password and keep the port loopback-only. The base healthcheck's
+    # `redis-cli ping` authenticates automatically via REDISCLI_AUTH.
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --requirepass
+      - '${REDIS_PASSWORD:?set REDIS_PASSWORD in .env for production}'
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    ports:
+      - '127.0.0.1:6379:6379'
+
+  garage:
+    # Dev scaffolding only — remove this service in a real R2 deployment. Until
+    # then, never expose it publicly.
+    ports:
+      - '127.0.0.1:3900:3900'
+      - '127.0.0.1:3903:3903'
+
+  api:
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
+  worker:
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    # Cap the blast radius of a decompression bomb / runaway transcode so it can't
+    # OOM or starve the whole single box. Tune via .env for your VPS size.
+    mem_limit: ${WORKER_MEM_LIMIT:-3g}
+    cpus: ${WORKER_CPUS:-2}
+    pids_limit: 512
 
 volumes:
   caddy-data:

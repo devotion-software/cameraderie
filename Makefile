@@ -1,9 +1,9 @@
 # Cameraderie — developer task runner.
 # `make` or `make help` lists every target. Most dev work needs only:
-#   make install   (once)        make up        (start db/redis/minio)
+#   make install   (once)        make up        (start db/redis/garage)
 #   make migrate   make seed      make dev       (run api + worker + web)
 #
-# Toolchain is Bun; infra (MariaDB, Redis, MinIO) runs via docker compose.
+# Toolchain is Bun; infra (MariaDB, Redis, Garage) runs via docker compose.
 
 # Use bash with strict flags for recipe reliability.
 SHELL := /bin/bash
@@ -11,7 +11,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 # Infra-only services (not the app containers, which use real R2 in prod).
-INFRA   := mariadb redis minio minio-init
+INFRA   := mariadb redis garage garage-init
 
 .PHONY: help install up infra stop down clean logs console \
         dev build build-libs typecheck test lint format \
@@ -32,9 +32,9 @@ install: ## Install all workspace dependencies (bun)
 
 ##@ Local infrastructure (Docker)
 
-up: ## Start MariaDB + Redis + MinIO in the background
+up: ## Start MariaDB + Redis + Garage in the background
 	$(COMPOSE) up -d $(INFRA)
-	@echo "Infra up. MinIO console: http://localhost:9001 (minioadmin/minioadmin)"
+	@echo "Infra up. Garage S3 API: http://localhost:3900 (GKdeadbeefdeadbeefdeadbeef / deadbeef...)"
 
 infra: up ## Alias for `up`
 
@@ -44,15 +44,15 @@ stop: ## Stop all docker compose services (keeps data)
 down: ## Stop and remove containers (keeps named volumes)
 	$(COMPOSE) down
 
-clean: ## Remove containers AND volumes (DESTROYS local db + minio data), plus build output
+clean: ## Remove containers AND volumes (DESTROYS local db + garage data), plus build output
 	$(COMPOSE) down -v
 	rm -rf packages/*/dist packages/web/build packages/web/.svelte-kit
 
 logs: ## Tail logs from infra services
 	$(COMPOSE) logs -f $(INFRA)
 
-console: ## Open the MinIO web console in a browser
-	open http://localhost:9001
+console: ## List objects in the local Garage bucket (no web console; Garage is CLI/API-only)
+	$(COMPOSE) exec garage /garage bucket list
 
 ##@ Database
 

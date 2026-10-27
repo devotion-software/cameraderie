@@ -16,4 +16,8 @@ RUN bun install \
   && bun run --filter='@cameraderie/worker' build
 
 ENV NODE_ENV=production
+# Drop root: the worker decodes untrusted media via ffmpeg/dcraw_emu/libvips, so a
+# native-decoder memory bug must not land as root. `bun` (uid 1000) ships in the
+# oven/bun image; it writes only to the OS tmpdir, which stays world-writable.
+USER bun
 CMD ["bun", "packages/worker/dist/index.js"]

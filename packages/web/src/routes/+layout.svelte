@@ -41,6 +41,14 @@
   {@render children()}
 </main>
 
+<footer class="sitefooter">
+  <div class="footer-inner">
+    <span class="muted">© Cameraderie</span>
+    <a class="muted" href="/legal/privacy">Privacy</a>
+    <a class="muted" href="/legal/terms">Terms</a>
+  </div>
+</footer>
+
 <style>
   .topbar {
     position: sticky;
@@ -74,6 +82,18 @@
     color: var(--text);
   }
   .email {
+    font-size: 13px;
+  }
+  .sitefooter {
+    border-top: 1px solid var(--border);
+    margin-top: 48px;
+  }
+  .footer-inner {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    display: flex;
+    gap: 18px;
+    padding: 18px 20px;
     font-size: 13px;
   }
   @media (max-width: 560px) {

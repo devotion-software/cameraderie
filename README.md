@@ -39,13 +39,15 @@ Cloudflare R2  ◀─── originals + derivatives ─────────�
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.1, Docker (for MariaDB + Redis + MinIO)
+- [Bun](https://bun.sh) ≥ 1.1, Docker (for MariaDB + Redis + Garage)
 - `make` (standard on macOS/Linux) — the repo ships a [Makefile](./Makefile) that
   wraps the common tasks; run `make help` to list them
 - `ffmpeg` + `libraw` on the worker host (bundled in the worker Docker image)
 - For local dev you **don't** need a Cloudflare R2 account — a local,
-  S3-compatible MinIO runs via Docker. A real R2 bucket + API token is only
-  needed for staging/production uploads.
+  S3-compatible [Garage](https://garagehq.deuxfleurs.fr/) server runs via
+  Docker (we use Garage rather than MinIO because MinIO's Docker images now
+  require a login to even pull). A real R2 bucket + API token is only needed
+  for staging/production uploads.
 
 ## Quick start (local dev)
 
@@ -53,10 +55,10 @@ Cloudflare R2  ◀─── originals + derivatives ─────────�
 make install                  # bun install
 
 # 1. Config
-cp .env.example .env          # set BETTER_AUTH_SECRET; uncomment the MinIO R2_* block
+cp .env.example .env          # set BETTER_AUTH_SECRET; uncomment the Garage R2_* block
 openssl rand -base64 32       # value for BETTER_AUTH_SECRET
 
-# 2. Infra — MariaDB + Redis + MinIO (local S3), with the bucket auto-created
+# 2. Infra — MariaDB + Redis + Garage (local S3), with the bucket auto-created
 make up
 
 # 3. Database — apply schema, then seed a demo account
@@ -68,24 +70,26 @@ make dev
 ```
 
 Then open the web client at **http://localhost:5173** and sign in with the
-seeded account (or sign up fresh). The API is on `:3000`; the MinIO console is on
-**http://localhost:9001** (`minioadmin` / `minioadmin`) — `make console` opens it.
+seeded account (or sign up fresh). The API is on `:3000`; the Garage S3 API is on
+**http://localhost:3900** — there's no web console, but `make console` lists the
+bucket's contents.
 
-**Using local MinIO storage.** In `.env`, uncomment the local-S3 block so the app
-points at MinIO instead of real R2:
+**Using local Garage storage.** In `.env`, uncomment the local-S3 block so the app
+points at Garage instead of real R2 (the access key / secret below are
+dev-only placeholders `make up` provisions automatically — see `.env.example`):
 
 ```bash
 R2_ACCOUNT_ID=local
-R2_ACCESS_KEY_ID=minioadmin
-R2_SECRET_ACCESS_KEY=minioadmin
-R2_ENDPOINT=http://localhost:9000
+R2_ACCESS_KEY_ID=GKdeadbeefdeadbeefdeadbeef
+R2_SECRET_ACCESS_KEY=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+R2_ENDPOINT=http://localhost:3900
 ```
 
 `R2_ENDPOINT` must be what the **browser** reaches, because uploads are presigned
-against that exact host and go straight there. `localhost:9000` is correct when
+against that exact host and go straight there. `localhost:3900` is correct when
 you run api/worker on the host (as `make dev` does). To instead run the _whole_
-stack in containers against MinIO, add `127.0.0.1 minio` to `/etc/hosts` and use
-`R2_ENDPOINT=http://minio:9000` so one hostname resolves on both sides.
+stack in containers against Garage, add `127.0.0.1 garage` to `/etc/hosts` and use
+`R2_ENDPOINT=http://garage:3900` so one hostname resolves on both sides.
 
 `packages/web/.env` already sets `PUBLIC_API_URL=http://localhost:3000`.
 
@@ -95,7 +99,7 @@ stack in containers against MinIO, add `127.0.0.1 minio` to `/etc/hosts` and use
 
 | Command                                       | What it does                                                                      |
 | --------------------------------------------- | --------------------------------------------------------------------------------- |
-| `make up` / `make stop`                       | Start / stop local infra (MariaDB + Redis + MinIO)                                |
+| `make up` / `make stop`                       | Start / stop local infra (MariaDB + Redis + Garage)                               |
 | `make dev`                                    | Build the shared libs, then run api + worker + web with live reload               |
 | `make migrate` / `make seed`                  | Apply migrations / seed the demo user + group                                     |
 | `make generate`                               | Generate a new Drizzle migration after a schema change                            |
@@ -104,7 +108,7 @@ stack in containers against MinIO, add `127.0.0.1 minio` to `/etc/hosts` and use
 | `make lint` / `make format`                   | Prettier check / write                                                            |
 | `make web-dev` / `make web-build`             | Run / build only the web client                                                   |
 | `make ios` / `make android-build`             | Generate the Xcode project / assemble the Android APK                             |
-| `make clean`                                  | Remove containers **and** volumes (destroys local db + MinIO data) + build output |
+| `make clean`                                  | Remove containers **and** volumes (destroys local db + Garage data) + build output |
 
 ## Full stack with Docker Compose
 
@@ -113,10 +117,10 @@ cp .env.example .env   # fill in secrets (and real R2_* for non-dev storage)
 docker compose up --build
 ```
 
-Brings up MariaDB, Redis, MinIO, the API (runs migrations on boot), the worker,
+Brings up MariaDB, Redis, Garage, the API (runs migrations on boot), the worker,
 and the web client. The API is on `:3000`, web on `:5173`. The app containers
-default to the `R2_*` values in `.env`; see the MinIO note above if you point
-them at local MinIO rather than real R2.
+default to the `R2_*` values in `.env`; see the Garage note above if you point
+them at local Garage rather than real R2.
 
 ## Cloudflare R2 setup
 

@@ -27,7 +27,13 @@ async function main() {
   let userId: string;
   try {
     const res = await auth.api.signUpEmail({
-      body: { email: DEMO_EMAIL, password: DEMO_PASSWORD, name: DEMO_NAME },
+      body: {
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+        name: DEMO_NAME,
+        // Demo account attests to the 18+/Terms gate (see auth.ts create.before).
+        acceptedTermsAt: new Date(),
+      },
     });
     userId = res.user.id;
     console.log(`Created demo user ${DEMO_EMAIL}`);

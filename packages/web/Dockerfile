@@ -13,4 +13,7 @@ ENV NODE_ENV=production
 ENV PORT=5173
 EXPOSE 5173
 
+# Drop root for the runtime; `bun` (uid 1000) ships in the oven/bun image.
+USER bun
+
 CMD ["bun", "packages/web/build/index.js"]

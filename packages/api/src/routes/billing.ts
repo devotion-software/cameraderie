@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
-import { subscriptions, user } from '@cameraderie/db';
+import { subscriptions, user, webhookEvents } from '@cameraderie/db';
 import { planFromEntitlement, type PlanId } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
@@ -9,6 +9,7 @@ import { loadEnv } from '../env.js';
 import { requireUser } from '../guards.js';
 import { parse } from '../validate.js';
 import { badRequest, unauthorized } from '../errors.js';
+import { extractRevenueCatEvent, isDuplicateKeyError } from '../billing-webhook.js';
 import { z } from 'zod';
 
 /**
@@ -97,12 +98,14 @@ export default async function billingRoutes(app: FastifyInstance) {
       throw badRequest('Invalid signature', 'invalid_signature');
     }
 
+    let target: { userId: string; plan: PlanId; active: boolean; periodEnd: Date | null } | null =
+      null;
     switch (event.type) {
       case 'checkout.session.completed': {
         const s = event.data.object;
         const userId = s.client_reference_id ?? s.metadata?.userId;
         const plan = (s.metadata?.plan as PlanId | undefined) ?? 'pro';
-        if (userId) await applyEntitlement(userId, plan, true, null, 'stripe', event);
+        if (userId) target = { userId, plan, active: true, periodEnd: null };
         break;
       }
       case 'customer.subscription.updated':
@@ -113,29 +116,46 @@ export default async function billingRoutes(app: FastifyInstance) {
         const plan = priceToPlan(priceId) ?? 'pro';
         const active = sub.status === 'active' || sub.status === 'trialing';
         const periodEnd = toDate((sub as unknown as { current_period_end?: number }).current_period_end);
-        if (userId) await applyEntitlement(userId, plan, active, periodEnd, 'stripe', event);
+        if (userId) target = { userId, plan, active, periodEnd };
         break;
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         const userId = sub.metadata?.userId;
-        if (userId) await applyEntitlement(userId, 'free', false, null, 'stripe', event);
+        if (userId) target = { userId, plan: 'free', active: false, periodEnd: null };
         break;
       }
       default:
         req.log.info({ type: event.type }, 'unhandled stripe event');
     }
-    return { received: true };
+    if (!target) return { received: true, applied: false };
+    // Dedup on Stripe's event id: a replayed webhook rolls back (see applyEntitlement).
+    const applied = await applyOnce(() =>
+      applyEntitlement(
+        target.userId,
+        target.plan,
+        target.active,
+        target.periodEnd,
+        'stripe',
+        event,
+        `stripe:${event.id}`,
+      ),
+    );
+    return { received: true, applied };
   }
 
   // ── RevenueCat ───────────────────────────────────────────────────────────────
 
   async function handleRevenueCatWebhook(req: FastifyRequest, reply: { code: (n: number) => unknown }) {
     // RevenueCat signs by a shared Authorization header you configure in its dashboard.
-    if (env.REVENUECAT_WEBHOOK_SECRET) {
-      const auth = req.headers['authorization'];
-      if (auth !== `Bearer ${env.REVENUECAT_WEBHOOK_SECRET}`) throw unauthorized('Bad webhook secret');
+    // Fail closed: without a configured secret we cannot authenticate the caller, and
+    // the payload's `app_user_id` is attacker-controlled — trusting it would let anyone
+    // grant any user an arbitrary plan. So an unset secret rejects the webhook outright.
+    if (!env.REVENUECAT_WEBHOOK_SECRET) {
+      throw badRequest('RevenueCat webhooks are not configured', 'billing_unavailable');
     }
+    const auth = req.headers['authorization'];
+    if (auth !== `Bearer ${env.REVENUECAT_WEBHOOK_SECRET}`) throw unauthorized('Bad webhook secret');
     const body = (req.body ?? {}) as Record<string, unknown>;
     const event = extractRevenueCatEvent(body);
     if (!event) {
@@ -143,19 +163,51 @@ export default async function billingRoutes(app: FastifyInstance) {
       reply.code(202);
       return { received: true, applied: false };
     }
+    // Identity binding: the shared secret authenticates RevenueCat, and RevenueCat
+    // vouches for `app_user_id` — but require it to resolve to a real account so a
+    // forged/stale id can't create phantom entitlement rows (and so we fail soft
+    // rather than hitting an FK error). Accept-and-ignore unknown users.
+    const existing = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, event.userId))
+      .limit(1);
+    if (existing.length === 0) {
+      req.log.warn({ userId: event.userId }, 'revenuecat webhook for unknown user; ignoring');
+      reply.code(202);
+      return { received: true, applied: false };
+    }
     const plan = planFromEntitlement(event.entitlement).id;
-    await applyEntitlement(
-      event.userId,
-      event.active ? plan : 'free',
-      event.active,
-      event.expiresAt,
-      'revenuecat',
-      body,
+    const eventKey = event.eventId ? `revenuecat:${event.eventId}` : null;
+    // Dedup on RevenueCat's event id when present; a replay rolls back.
+    const applied = await applyOnce(() =>
+      applyEntitlement(
+        event.userId,
+        event.active ? plan : 'free',
+        event.active,
+        event.expiresAt,
+        'revenuecat',
+        body,
+        eventKey,
+      ),
     );
-    return { received: true, applied: true };
+    return { received: true, applied };
   }
 
   // ── Shared entitlement sync ────────────────────────────────────────────────────
+
+  // Run an entitlement apply, treating a webhook-event PK collision as "already
+  // processed" (idempotent replay) rather than an error. Returns whether the apply
+  // actually ran. Any other error propagates so the provider retries.
+  async function applyOnce(fn: () => Promise<void>): Promise<boolean> {
+    try {
+      await fn();
+      return true;
+    } catch (err) {
+      if (isDuplicateKeyError(err)) return false;
+      throw err;
+    }
+  }
 
   async function applyEntitlement(
     userId: string,
@@ -164,8 +216,14 @@ export default async function billingRoutes(app: FastifyInstance) {
     currentPeriodEnd: Date | null,
     provider: string,
     raw: unknown,
+    eventKey: string | null,
   ): Promise<void> {
     await db.transaction(async (tx) => {
+      // Record the event FIRST. Its PK is unique, so a replayed/duplicated delivery
+      // collides here and the whole transaction (upsert + plan change) rolls back.
+      if (eventKey) {
+        await tx.insert(webhookEvents).values({ id: eventKey, provider });
+      }
       await tx
         .insert(subscriptions)
         .values({
@@ -198,23 +256,4 @@ export default async function billingRoutes(app: FastifyInstance) {
 
 function toDate(seconds: number | undefined): Date | null {
   return typeof seconds === 'number' ? new Date(seconds * 1000) : null;
-}
-
-interface RevenueCatEvent {
-  userId: string;
-  entitlement: string | null;
-  active: boolean;
-  expiresAt: Date | null;
-}
-
-function extractRevenueCatEvent(body: Record<string, unknown>): RevenueCatEvent | null {
-  const ev = (body.event ?? body) as Record<string, unknown>;
-  const userId = (ev.app_user_id ?? ev.userId) as string | undefined;
-  if (!userId) return null;
-  const entitlements = (ev.entitlement_ids ?? ev.entitlements) as string[] | undefined;
-  const entitlement = Array.isArray(entitlements) && entitlements.length ? entitlements[0]! : null;
-  const type = (ev.type as string | undefined)?.toUpperCase() ?? '';
-  const active = !['CANCELLATION', 'EXPIRATION', 'REFUND'].includes(type) && entitlement !== null;
-  const expiresMs = ev.expiration_at_ms as number | undefined;
-  return { userId, entitlement, active, expiresAt: expiresMs ? new Date(expiresMs) : null };
 }

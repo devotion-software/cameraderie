@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { useSession, signOut } from '$lib/auth';
   import { api } from '$lib/api';
+  import { API_URL } from '$lib/config';
   import { formatBytes } from '$lib/format';
   import type { Usage } from '$lib/types';
 
@@ -9,6 +10,7 @@
   let usage = $state<Usage | null>(null);
   let error = $state('');
   let deleting = $state(false);
+  let exporting = $state(false);
 
   // Plan tiers mirror @cameraderie/shared PLANS.
   const PLANS = [
@@ -47,6 +49,28 @@
           ? `${err.message} (billing may not be configured yet)`
           : 'Checkout failed';
       upgradingTo = null;
+    }
+  }
+
+  async function exportData() {
+    exporting = true;
+    error = '';
+    try {
+      const res = await fetch(`${API_URL}/me/export`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cameraderie-export.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Export failed';
+    } finally {
+      exporting = false;
     }
   }
 
@@ -112,6 +136,21 @@
     </p>
   </section>
 {/if}
+
+<section class="card">
+  <h2>Your data &amp; policies</h2>
+  <p class="muted">
+    Download a copy of your account data, or read how we handle it.
+  </p>
+  <div class="row">
+    <button class="btn secondary" onclick={exportData} disabled={exporting}>
+      {exporting ? 'Preparing…' : 'Export my data (JSON)'}
+    </button>
+    <span class="spacer"></span>
+    <a class="muted small" href="/legal/privacy">Privacy</a>
+    <a class="muted small" href="/legal/terms">Terms</a>
+  </div>
+</section>
 
 <section class="card danger-zone">
   <h2>Danger zone</h2>
