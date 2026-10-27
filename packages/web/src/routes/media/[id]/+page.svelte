@@ -104,9 +104,9 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if item}
-  <a href="/groups/{item.groupId}" class="muted back">← Back to group</a>
+  <a href="/groups/{item.groupId}" class="back"><span class="arrow">←</span> Back to group</a>
 
-  <div class="stage card">
+  <div class="stage card" class:fit={item.kind !== 'video'}>
     {#if item.state === 'ready' && item.previewUrl}
       {#if item.kind === 'video'}
         <!-- svelte-ignore a11y_media_has_caption -->
@@ -165,11 +165,6 @@
 {/if}
 
 <style>
-  .back {
-    font-size: 13px;
-    display: inline-block;
-    margin-bottom: 12px;
-  }
   .stage {
     padding: 0;
     overflow: hidden;
@@ -178,12 +173,25 @@
     justify-content: center;
     background: #000;
     min-height: 240px;
+    border-radius: var(--radius-lg);
+  }
+  /* Photos sit directly on the glass card background and hug their own
+     size instead of filling a fixed-height letterboxed stage. */
+  .stage.fit {
+    background: none;
+    min-height: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
   }
   .stage img,
   .stage video {
     max-width: 100%;
     max-height: 70vh;
     display: block;
+  }
+  .stage.fit img {
+    border-radius: calc(var(--radius-lg) - 1px);
   }
   .stage img.blurry {
     filter: blur(8px);
@@ -208,6 +216,8 @@
   }
   .meta dt {
     color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 600;
   }
   .meta dd {
     margin: 0;

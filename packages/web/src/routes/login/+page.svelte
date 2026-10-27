@@ -51,6 +51,7 @@
 
 <div class="auth">
   <div class="card">
+    <p class="eyebrow">Cameraderie</p>
     <h1>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
     <p class="muted">Private groups for full-fidelity photos and videos.</p>
 
@@ -113,7 +114,10 @@
 <style>
   .auth {
     max-width: 400px;
-    margin: 48px auto;
+    margin: 64px auto;
+  }
+  .auth .card {
+    border-radius: var(--radius-lg);
   }
   form {
     display: flex;

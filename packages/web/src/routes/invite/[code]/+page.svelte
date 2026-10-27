@@ -73,7 +73,11 @@
 <style>
   .wrap {
     max-width: 420px;
-    margin: 48px auto;
+    margin: 64px auto;
+  }
+  .wrap .card {
+    border-radius: var(--radius-lg);
+    text-align: center;
   }
   h1 {
     margin-top: 0;

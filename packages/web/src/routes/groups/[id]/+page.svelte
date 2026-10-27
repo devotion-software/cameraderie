@@ -115,7 +115,7 @@
 {#if group}
   <div class="head">
     <div>
-      <a href="/groups" class="muted back">← Groups</a>
+      <a href="/groups" class="back"><span class="arrow">←</span> Groups</a>
       <h1>{group.name}</h1>
       {#if group.description}<p class="muted">{group.description}</p>{/if}
     </div>
@@ -209,9 +209,6 @@
   .head h1 {
     margin: 4px 0 0;
   }
-  .back {
-    font-size: 13px;
-  }
   .actions {
     display: flex;
     gap: 8px;
@@ -260,7 +257,7 @@
   }
   .fill {
     height: 100%;
-    background: var(--accent);
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
     transition: width 0.2s ease;
   }
   .pct {
@@ -271,11 +268,25 @@
   .tile {
     position: relative;
     aspect-ratio: 1;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--surface-2);
+    backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--border);
     display: block;
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    transition:
+      transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1),
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .tile:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--accent);
+    box-shadow:
+      0 16px 36px -14px hsl(var(--shadow-color) / 0.5),
+      0 0 0 1px var(--accent-soft),
+      inset 0 1px 0 var(--glass-highlight);
   }
   .tile img {
     width: 100%;
@@ -301,7 +312,8 @@
     font-size: 12px;
     padding: 2px 7px;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(10, 10, 26, 0.55);
+    backdrop-filter: blur(6px);
     color: white;
   }
   .overlay.play {
