@@ -1,16 +1,49 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { useSession, signOut } from '$lib/auth';
+  import { useSession, signOut, authClient } from '$lib/auth';
   import { api } from '$lib/api';
   import { API_URL } from '$lib/config';
-  import { formatBytes } from '$lib/format';
   import type { Usage } from '$lib/types';
+  import StoragePanel from '$lib/components/StoragePanel.svelte';
+  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
   const session = useSession();
   let usage = $state<Usage | null>(null);
   let error = $state('');
   let deleting = $state(false);
   let exporting = $state(false);
+
+  let name = $state('');
+  let nameLoaded = false;
+  let savingName = $state(false);
+  let nameSaved = $state(false);
+
+  $effect(() => {
+    if (!nameLoaded && $session.data?.user?.name) {
+      name = $session.data.user.name;
+      nameLoaded = true;
+    }
+  });
+
+  async function saveName(e: SubmitEvent) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    savingName = true;
+    nameSaved = false;
+    error = '';
+    try {
+      const res = await authClient.updateUser({ name: trimmed });
+      if (res.error) throw new Error(res.error.message ?? 'Failed to update name');
+      name = trimmed;
+      nameSaved = true;
+      setTimeout(() => (nameSaved = false), 2000);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to update name';
+    } finally {
+      savingName = false;
+    }
+  }
 
   // Plan tiers mirror @cameraderie/shared PLANS.
   const PLANS = [
@@ -92,26 +125,33 @@
     }
   }
 
-  const usedPct = $derived(usage ? Math.min(100, (usage.usedBytes / usage.quotaBytes) * 100) : 0);
 </script>
 
 <h1>Settings</h1>
 
 {#if error}<p class="error">{error}</p>{/if}
 
+<section class="card">
+  <h2>Profile</h2>
+  <form class="row" onsubmit={saveName}>
+    <input class="input" bind:value={name} maxlength={255} placeholder="Your name" required />
+    <button class="btn secondary" type="submit" disabled={savingName || !name.trim()}>
+      {savingName ? 'Saving…' : nameSaved ? 'Saved ✓' : 'Save'}
+    </button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Appearance</h2>
+  <div class="row">
+    <span class="muted">Switch between light and dark mode.</span>
+    <span class="spacer"></span>
+    <ThemeToggle />
+  </div>
+</section>
+
 {#if usage}
-  <section class="card">
-    <h2>Storage</h2>
-    <div class="row">
-      <span class="muted">{formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)}</span>
-      <span class="spacer"></span>
-      <span class="badge">{usage.plan}</span>
-    </div>
-    <div class="bar"><div class="fill" style="width: {usedPct}%"></div></div>
-    {#if usage.readOnly}
-      <p class="muted">Over quota — uploads paused until you free space or upgrade.</p>
-    {/if}
-  </section>
+  <StoragePanel {usage} />
 
   <section class="card">
     <h2>Plans</h2>
@@ -138,17 +178,24 @@
 {/if}
 
 <section class="card">
-  <h2>Your data &amp; policies</h2>
-  <p class="muted">
-    Download a copy of your account data, or read how we handle it.
-  </p>
-  <div class="row">
-    <button class="btn secondary" onclick={exportData} disabled={exporting}>
-      {exporting ? 'Preparing…' : 'Export my data (JSON)'}
-    </button>
-    <span class="spacer"></span>
-    <a class="muted small" href="/legal/privacy">Privacy</a>
-    <a class="muted small" href="/legal/terms">Terms</a>
+  <h2>Your data</h2>
+  <p class="muted">Download a copy of your account data at any time.</p>
+  <button class="btn secondary" onclick={exportData} disabled={exporting}>
+    {exporting ? 'Preparing…' : 'Export my data (JSON)'}
+  </button>
+</section>
+
+<section class="card">
+  <h2>Legal</h2>
+  <div class="legal-links">
+    <a class="legal-link" href="/legal/privacy">
+      <span>Privacy Policy</span>
+      <span class="chev">›</span>
+    </a>
+    <a class="legal-link" href="/legal/terms">
+      <span>Terms of Service</span>
+      <span class="chev">›</span>
+    </a>
   </div>
 </section>
 
@@ -169,17 +216,6 @@
   }
   section {
     margin-bottom: 16px;
-  }
-  .bar {
-    margin-top: 10px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--surface-2);
-    overflow: hidden;
-  }
-  .fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
   }
   .plans {
     display: grid;
@@ -205,5 +241,36 @@
   }
   .danger-zone {
     border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  }
+  .legal-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .legal-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+  .legal-link:hover {
+    text-decoration: none;
+    background: var(--surface-strong);
+    border-color: var(--border-strong);
+    transform: translateX(2px);
+  }
+  .legal-link .chev {
+    color: var(--text-dim);
+    font-size: 1.1rem;
   }
 </style>

@@ -115,8 +115,7 @@
 {#if group}
   <div class="head">
     <div>
-      <a href="/groups" class="muted back">← Groups</a>
-      <p class="eyebrow">Shared album</p>
+      <a href="/groups" class="back"><span class="arrow">←</span> Groups</a>
       <h1>{group.name}</h1>
       {#if group.description}<p class="muted">{group.description}</p>{/if}
     </div>
@@ -209,9 +208,6 @@
   }
   .head h1 {
     margin: 4px 0 0;
-  }
-  .back {
-    font-size: 13px;
   }
   .actions {
     display: flex;

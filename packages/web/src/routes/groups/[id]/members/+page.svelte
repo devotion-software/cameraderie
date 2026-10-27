@@ -53,7 +53,7 @@
 </script>
 
 {#if group}
-  <a href="/groups/{groupId}" class="muted back">← {group.name}</a>
+  <a href="/groups/{groupId}" class="back"><span class="arrow">←</span> {group.name}</a>
   <h1>Members</h1>
 {/if}
 
@@ -81,9 +81,6 @@
 {/if}
 
 <style>
-  .back {
-    font-size: 13px;
-  }
   .list {
     display: flex;
     flex-direction: column;

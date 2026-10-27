@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { useSession, signOut } from '$lib/auth';
-  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
   let { children } = $props();
   const session = useSession();
@@ -35,11 +34,9 @@
           Settings
         </a>
       </nav>
-      <span class="muted email">{$session.data.user.email}</span>
-      <ThemeToggle />
+      <span class="muted username">{$session.data.user.name}</span>
       <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
     {:else}
-      <ThemeToggle />
       <a href="/login" class="btn secondary">Sign in</a>
     {/if}
   </div>
@@ -48,15 +45,6 @@
 <main class="container">
   {@render children()}
 </main>
-
-<footer class="sitefooter">
-  <div class="footer-inner glass">
-    <span class="muted">A quiet place for your people.</span>
-    <div class="spacer"></div>
-    <a class="muted" href="/legal/privacy">Privacy</a>
-    <a class="muted" href="/legal/terms">Terms</a>
-  </div>
-</footer>
 
 <style>
   .topbar {
@@ -133,33 +121,15 @@
     border-radius: 2px;
     background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
   }
-  .email {
+  .username {
     font-size: 13px;
-  }
-  .sitefooter {
-    margin-top: 48px;
-    padding: 0 20px 24px;
-  }
-  .footer-inner {
-    max-width: var(--maxw);
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 16px 24px;
-    font-size: 13px;
-    border-radius: var(--radius-lg);
+    font-weight: 600;
   }
   @media (max-width: 680px) {
     .navlinks {
       gap: 14px;
     }
-    .email {
-      display: none;
-    }
-  }
-  @media (max-width: 560px) {
-    .footer-inner span:first-child {
+    .username {
       display: none;
     }
   }

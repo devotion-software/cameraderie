@@ -2,8 +2,8 @@
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
-  import { formatBytes } from '$lib/format';
   import type { Group, Usage } from '$lib/types';
+  import StoragePanel from '$lib/components/StoragePanel.svelte';
 
   const session = useSession();
   let groups = $state<Group[]>([]);
@@ -13,6 +13,19 @@
 
   let newName = $state('');
   let creating = $state(false);
+  let showCreate = $state(false);
+  let showStorage = $state(false);
+  let nameInput = $state<HTMLInputElement>();
+
+  function openCreate() {
+    showCreate = true;
+    requestAnimationFrame(() => nameInput?.focus());
+  }
+
+  function closeCreate() {
+    showCreate = false;
+    newName = '';
+  }
 
   $effect(() => {
     if ($session.isPending) return;
@@ -47,6 +60,7 @@
     try {
       const res = await api.post<{ group: Group }>('/groups', { name: newName.trim() });
       newName = '';
+      showCreate = false;
       goto(`/groups/${res.group.id}`);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to create group';
@@ -55,36 +69,46 @@
     }
   }
 
-  const usedPct = $derived(usage ? Math.min(100, (usage.usedBytes / usage.quotaBytes) * 100) : 0);
 </script>
 
-<div class="head">
-  <p class="eyebrow">Together</p>
-  <h1>Your groups</h1>
+<div class="head row">
+  <div>
+    <h1>Your groups</h1>
+  </div>
+  <span class="spacer"></span>
+  {#if usage}
+    <button
+      class="btn secondary"
+      class:active={showStorage}
+      onclick={() => (showStorage = !showStorage)}
+    >
+      Storage
+    </button>
+  {/if}
+  {#if !showCreate}
+    <button class="btn" onclick={openCreate}>+ New group</button>
+  {/if}
 </div>
 
-{#if usage}
-  <div class="card usage">
-    <div class="row">
-      <strong>Storage</strong>
-      <span class="spacer"></span>
-      <span class="muted">
-        {formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} · {usage.plan}
-      </span>
-    </div>
-    <div class="bar"><div class="fill" style="width: {usedPct}%"></div></div>
-    {#if usage.readOnly}
-      <p class="muted" style="margin:8px 0 0">
-        You're over quota — viewing and downloads still work, but new uploads are paused.
-      </p>
-    {/if}
-  </div>
+{#if usage && showStorage}
+  <StoragePanel {usage} />
 {/if}
 
-<form class="create card" onsubmit={createGroup}>
-  <input class="input" placeholder="New group name…" bind:value={newName} maxlength={80} />
-  <button class="btn" type="submit" disabled={creating || !newName.trim()}>Create</button>
-</form>
+{#if showCreate}
+  <form class="create card" onsubmit={createGroup}>
+    <input
+      class="input"
+      placeholder="New group name…"
+      bind:value={newName}
+      bind:this={nameInput}
+      maxlength={80}
+    />
+    <button class="btn" type="submit" disabled={creating || !newName.trim()}>
+      {creating ? 'Creating…' : 'Create'}
+    </button>
+    <button class="btn ghost" type="button" onclick={closeCreate} disabled={creating}>Cancel</button>
+  </form>
+{/if}
 
 {#if error}<p class="error">{error}</p>{/if}
 
@@ -108,20 +132,9 @@
   .head {
     margin-bottom: 16px;
   }
-  .usage {
-    margin-bottom: 16px;
-  }
-  .bar {
-    margin-top: 10px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--surface-2);
-    overflow: hidden;
-  }
-  .fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
-    box-shadow: 0 0 12px var(--accent-soft);
+  .btn.secondary.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-soft);
   }
   .create {
     display: flex;
