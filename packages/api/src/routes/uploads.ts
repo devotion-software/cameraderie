@@ -37,53 +37,57 @@ export default async function uploadRoutes(app: FastifyInstance) {
     '/media/uploads',
     { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
     async (req) => {
-    const me = await requireUser(req);
-    const body = parse(beginUploadBody, req.body);
-    await requireMembership(body.groupId, me.id);
+      const me = await requireUser(req);
+      const body = parse(beginUploadBody, req.body);
+      await requireMembership(body.groupId, me.id);
 
-    // Validate declared type and size server-side before reserving anything.
-    if (!isAllowedUpload(body.filename, body.mimeType)) {
-      throw badRequest('Unsupported file type', 'unsupported_type');
-    }
-    if (body.sizeBytes > MAX_UPLOAD_BYTES) {
-      throw badRequest(
-        `File exceeds the maximum upload size of ${MAX_UPLOAD_BYTES} bytes`,
-        'file_too_large',
+      // Validate declared type and size server-side before reserving anything.
+      if (!isAllowedUpload(body.filename, body.mimeType)) {
+        throw badRequest('Unsupported file type', 'unsupported_type');
+      }
+      if (body.sizeBytes > MAX_UPLOAD_BYTES) {
+        throw badRequest(
+          `File exceeds the maximum upload size of ${MAX_UPLOAD_BYTES} bytes`,
+          'file_too_large',
+        );
+      }
+
+      // Enforce quota before any bytes are sent.
+      await assertCanUpload(me.id, body.sizeBytes);
+
+      const mediaId = newId();
+      const kind = classifyMedia(body.filename, body.mimeType);
+      const key = originalKey(mediaId, body.filename);
+
+      const multipart = await createMultipartUpload(
+        key,
+        body.sizeBytes,
+        body.mimeType ?? undefined,
       );
-    }
 
-    // Enforce quota before any bytes are sent.
-    await assertCanUpload(me.id, body.sizeBytes);
+      await db.insert(media).values({
+        id: mediaId,
+        groupId: body.groupId,
+        uploaderId: me.id,
+        kind,
+        state: 'uploading',
+        filename: body.filename,
+        mimeType: body.mimeType ?? null,
+        sizeBytes: body.sizeBytes,
+        checksumSha256: body.checksumSha256,
+        objectKey: key,
+        r2UploadId: multipart.uploadId,
+        capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
+      });
 
-    const mediaId = newId();
-    const kind = classifyMedia(body.filename, body.mimeType);
-    const key = originalKey(mediaId, body.filename);
-
-    const multipart = await createMultipartUpload(key, body.sizeBytes, body.mimeType ?? undefined);
-
-    await db.insert(media).values({
-      id: mediaId,
-      groupId: body.groupId,
-      uploaderId: me.id,
-      kind,
-      state: 'uploading',
-      filename: body.filename,
-      mimeType: body.mimeType ?? null,
-      sizeBytes: body.sizeBytes,
-      checksumSha256: body.checksumSha256,
-      objectKey: key,
-      r2UploadId: multipart.uploadId,
-      capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
-    });
-
-    const response: BeginUploadResponse = {
-      mediaId,
-      r2UploadId: multipart.uploadId,
-      key,
-      partSizeBytes: multipart.partSizeBytes,
-      parts: multipart.parts,
-    };
-    return response;
+      const response: BeginUploadResponse = {
+        mediaId,
+        r2UploadId: multipart.uploadId,
+        key,
+        partSizeBytes: multipart.partSizeBytes,
+        parts: multipart.parts,
+      };
+      return response;
     },
   );
 
@@ -149,11 +153,17 @@ export default async function uploadRoutes(app: FastifyInstance) {
       // Verify the object landed and matches the declared size.
       const head = await headObject(row.objectKey);
       if (!head.exists) {
-        await db.update(media).set({ state: 'failed', r2UploadId: null }).where(eq(media.id, row.id));
+        await db
+          .update(media)
+          .set({ state: 'failed', r2UploadId: null })
+          .where(eq(media.id, row.id));
         throw badRequest('Upload did not land in storage', 'upload_missing');
       }
       if (typeof head.sizeBytes === 'number' && head.sizeBytes !== row.sizeBytes) {
-        await db.update(media).set({ state: 'failed', r2UploadId: null }).where(eq(media.id, row.id));
+        await db
+          .update(media)
+          .set({ state: 'failed', r2UploadId: null })
+          .where(eq(media.id, row.id));
         throw badRequest(
           `Stored size ${head.sizeBytes} does not match declared ${row.sizeBytes}`,
           'size_mismatch',
@@ -184,11 +194,7 @@ export default async function uploadRoutes(app: FastifyInstance) {
   });
 }
 
-async function loadOwnPendingUpload(
-  db: ReturnType<typeof getDb>,
-  id: string,
-  userId: string,
-) {
+async function loadOwnPendingUpload(db: ReturnType<typeof getDb>, id: string, userId: string) {
   const [row] = await db.select().from(media).where(eq(media.id, id)).limit(1);
   if (!row) throw notFound('Upload not found');
   if (row.uploaderId !== userId) throw forbidden('Not your upload');

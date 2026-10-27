@@ -46,3 +46,13 @@ export interface Usage {
   plan: string;
   readOnly: boolean;
 }
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  canCreateGroups: boolean;
+  canInviteMembers: boolean;
+  createdAt: string;
+}

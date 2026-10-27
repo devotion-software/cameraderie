@@ -50,6 +50,13 @@
       "when": 1793143213692,
       "tag": "0006_amazing_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1793143909650,
+      "tag": "0007_futuristic_quentin_quire",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,14 @@
   title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 >
   {#if theme === 'dark'}
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+    >
       <circle cx="12" cy="12" r="4.5" />
       <path
         stroke-linecap="round"

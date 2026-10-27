@@ -97,17 +97,17 @@ stack in containers against Garage, add `127.0.0.1 garage` to `/etc/hosts` and u
 
 `make help` prints the full list. The ones you'll reach for most:
 
-| Command                                       | What it does                                                                      |
-| --------------------------------------------- | --------------------------------------------------------------------------------- |
-| `make up` / `make stop`                       | Start / stop local infra (MariaDB + Redis + Garage)                               |
-| `make dev`                                    | Build the shared libs, then run api + worker + web with live reload               |
-| `make migrate` / `make seed`                  | Apply migrations / seed the demo user + group                                     |
-| `make generate`                               | Generate a new Drizzle migration after a schema change                            |
-| `make reset-db`                               | Wipe the DB volume, recreate, migrate, and seed from scratch                      |
-| `make build` / `make test` / `make typecheck` | Build all packages / run Vitest / type-check                                      |
-| `make lint` / `make format`                   | Prettier check / write                                                            |
-| `make web-dev` / `make web-build`             | Run / build only the web client                                                   |
-| `make ios` / `make android-build`             | Generate the Xcode project / assemble the Android APK                             |
+| Command                                       | What it does                                                                       |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `make up` / `make stop`                       | Start / stop local infra (MariaDB + Redis + Garage)                                |
+| `make dev`                                    | Build the shared libs, then run api + worker + web with live reload                |
+| `make migrate` / `make seed`                  | Apply migrations / seed the demo user + group                                      |
+| `make generate`                               | Generate a new Drizzle migration after a schema change                             |
+| `make reset-db`                               | Wipe the DB volume, recreate, migrate, and seed from scratch                       |
+| `make build` / `make test` / `make typecheck` | Build all packages / run Vitest / type-check                                       |
+| `make lint` / `make format`                   | Prettier check / write                                                             |
+| `make web-dev` / `make web-build`             | Run / build only the web client                                                    |
+| `make ios` / `make android-build`             | Generate the Xcode project / assemble the Android APK                              |
 | `make clean`                                  | Remove containers **and** volumes (destroys local db + Garage data) + build output |
 
 ## Full stack with Docker Compose
@@ -241,11 +241,14 @@ end-to-end; the native apps need Xcode / Android Studio to build.
   for a perceptual hash-matching service for a public launch (UK: the IWF hash
   list; elsewhere PhotoDNA / NCMEC) — the matcher in `worker/src/safety.ts` stays
   the same; only `BLOCKED_SHA256` → service call changes.
-- **Invite-only sign-up** — set `ALLOWED_SIGNUP_EMAILS` (comma-separated) so only
-  listed emails can create an account; every other sign-up is rejected. Leaving
-  it empty leaves sign-up **open** (dev default) and logs a warning — set it
-  before any shared/public deployment. Group membership is additionally gated by
-  invite codes.
+- **Invite-only sign-up** — an email may only register once it's either on the
+  static `ALLOWED_SIGNUP_EMAILS` allowlist (comma-separated; a bootstrap
+  mechanism for the first admin account) or addressed by a pending group
+  invite (an invite created with an email attached — see `POST
+/groups/:id/invites`). There is no open/public registration. Site admins
+  control, per user, whether they can create groups or invite new members
+  (`user.canCreateGroups` / `user.canInviteMembers`, manageable from
+  `/admin/users`).
 
 ## Status & what's next
 

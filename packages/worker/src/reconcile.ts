@@ -36,7 +36,9 @@ export async function reconcile(): Promise<void> {
   const missing = chargedRows.filter((r) => !r2MediaIds.has(r.id)).map((r) => r.id);
   if (missing.length > 0) {
     await db.update(media).set({ state: 'failed' }).where(inArray(media.id, missing));
-    console.log(`[worker] reconcile: marked ${missing.length} row(s) failed (original missing in R2)`);
+    console.log(
+      `[worker] reconcile: marked ${missing.length} row(s) failed (original missing in R2)`,
+    );
   }
 
   // 2. Orphaned R2 originals with no owning media row.

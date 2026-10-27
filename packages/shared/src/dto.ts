@@ -20,6 +20,12 @@ export const setGroupCoverBody = z.object({
 export type SetGroupCoverBody = z.infer<typeof setGroupCoverBody>;
 
 export const createInviteBody = z.object({
+  /**
+   * Optional: restrict this invite to one email address. That email also
+   * becomes allowed to sign up, even if not on the static signup allowlist —
+   * this is the primary way new accounts get admitted.
+   */
+  email: z.string().trim().toLowerCase().email().optional(),
   /** Optional cap on how many people may accept this invite. */
   maxUses: z.number().int().positive().max(1000).optional(),
   /** Optional expiry, ISO 8601. */
@@ -127,3 +133,12 @@ export const resolveReportBody = z.object({
   action: z.enum(['actioned', 'dismissed']),
 });
 export type ResolveReportBody = z.infer<typeof resolveReportBody>;
+
+// ── Admin: user roles & permissions ───────────────────────────────────────────────
+
+export const updateUserPermissionsBody = z.object({
+  role: z.enum(['user', 'admin']).optional(),
+  canCreateGroups: z.boolean().optional(),
+  canInviteMembers: z.boolean().optional(),
+});
+export type UpdateUserPermissionsBody = z.infer<typeof updateUserPermissionsBody>;

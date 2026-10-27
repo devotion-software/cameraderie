@@ -53,6 +53,11 @@
     }
   }
 
+  const canCreateGroups = $derived.by(() => {
+    const u = $session.data?.user as { role?: string; canCreateGroups?: boolean } | undefined;
+    return !!u && (u.role === 'admin' || u.canCreateGroups === true);
+  });
+
   async function createGroup(e: SubmitEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
@@ -68,7 +73,6 @@
       creating = false;
     }
   }
-
 </script>
 
 <div class="head row">
@@ -85,10 +89,16 @@
       Storage
     </button>
   {/if}
-  {#if !showCreate}
+  {#if canCreateGroups && !showCreate}
     <button class="btn" onclick={openCreate}>+ New group</button>
   {/if}
 </div>
+
+{#if !canCreateGroups}
+  <p class="muted hint">
+    You don't have permission to create new groups yet — ask a site admin to grant it.
+  </p>
+{/if}
 
 {#if usage && showStorage}
   <StoragePanel {usage} />
@@ -106,7 +116,8 @@
     <button class="btn" type="submit" disabled={creating || !newName.trim()}>
       {creating ? 'Creating…' : 'Create'}
     </button>
-    <button class="btn ghost" type="button" onclick={closeCreate} disabled={creating}>Cancel</button>
+    <button class="btn ghost" type="button" onclick={closeCreate} disabled={creating}>Cancel</button
+    >
   </form>
 {/if}
 
@@ -136,6 +147,10 @@
 <style>
   .head {
     margin-bottom: 16px;
+  }
+  .hint {
+    margin: -8px 0 16px;
+    font-size: 13px;
   }
   .btn.secondary.active {
     border-color: var(--accent);

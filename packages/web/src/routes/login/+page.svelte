@@ -86,7 +86,8 @@
         <label class="check">
           <input type="checkbox" bind:checked={agreeTerms} />
           <span>
-            I agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Service</a>
+            I agree to the <a href="/legal/terms" target="_blank" rel="noopener">Terms of Service</a
+            >
             and <a href="/legal/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
           </span>
         </label>

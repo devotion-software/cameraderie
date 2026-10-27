@@ -22,10 +22,11 @@ building the native apps. Work top-to-bottom. Items are marked:
    ```
 3. Set the database passwords (`MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`) to
    your own values. For local dev the defaults work.
-4. `ALLOWED_SIGNUP_EMAILS` gates who may create an account. Leave it **blank for
-   local dev** — sign-up is open and the API logs a warning. Set it to a
-   comma-separated allowlist (keeping the app invite-only) **before you share
-   the app**.
+4. `ALLOWED_SIGNUP_EMAILS` is a bootstrap allowlist for your own first account —
+   sign-up is invite-only everywhere, including local dev (see section
+   "Keeping sign-up invite-only" below). Set it to your own email (comma-
+   separated if more than one) so you have an account to log in with before
+   anyone has invited you.
 5. **Local storage (dev):** uncomment the Garage `R2_*` block in `.env.example`
    (`R2_ENDPOINT=http://localhost:3900`, access key `GKdeadbeefdeadbeefdeadbeef` /
    secret `deadbeef...` — dev-only placeholder creds, see the file) so dev runs
@@ -91,10 +92,12 @@ make seed             # optional: a demo login (demo@cameraderie.local / passwor
 make dev              # build the shared libs, then run api + worker + web (Ctrl-C stops all)
 ```
 
-Open http://localhost:5173, sign in with the seeded account (or sign up — allowed
-in dev since `ALLOWED_SIGNUP_EMAILS` is blank), create a group, and upload a
-photo. If uploads fail against **real R2**, re-check the CORS rule (step 2.4);
-against local Garage it's configured for you.
+Open http://localhost:5173 and sign in with the seeded account
+(`demo@cameraderie.local` / `password123` — it's also a site admin with full
+permissions, see "Keeping sign-up invite-only" below for how to sign up any
+other account), create a group, and upload a photo. If uploads fail against
+**real R2**, re-check the CORS rule (step 2.4); against local Garage it's
+configured for you.
 
 Other handy targets: `make stop` (stop infra), `make reset-db` (wipe + migrate +
 seed), `make test`, `make typecheck`, `make lint` / `make format`,
@@ -190,13 +193,22 @@ out-of-band once preserved.
   the same, so nothing else changes.
 - Ensure Sentry is configured (section 7) so quarantine alerts reach you.
 
-### Keeping sign-up invite-only — [do before sharing with anyone]
+### Keeping sign-up invite-only — [already on by default]
 
-Account creation (`POST /api/auth/sign-up/email`) is otherwise open to anyone.
-Set `ALLOWED_SIGNUP_EMAILS` to a comma-separated list of your friends' emails;
-only those addresses can register, everything else is rejected. Empty = open
-sign-up (dev only — a warning is logged on boot). Group membership stays gated by
-invite codes on top of this.
+Account creation (`POST /api/auth/sign-up/email`) only succeeds for an email
+that's either on the static `ALLOWED_SIGNUP_EMAILS` allowlist, or has been
+sent a group invite with that email attached (create one from a group page,
+or `POST /groups/:id/invites` with `{"email": "..."}`). There is no open
+registration, in dev or prod.
+
+`ALLOWED_SIGNUP_EMAILS` exists purely to bootstrap your own first account,
+since you have nobody yet to invite you — set it to your email, sign up, then
+leave it blank (or remove your own address) once you're in. From there,
+invite others by email from within a group, or flip a trusted user's
+`canInviteMembers` permission at `/admin/users` so they can invite people
+themselves. The same page controls `canCreateGroups`, i.e. who's allowed to
+start new groups at all — both default to off for everyone except site
+admins.
 
 ---
 

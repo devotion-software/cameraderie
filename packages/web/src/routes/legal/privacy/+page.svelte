@@ -10,10 +10,9 @@
 
 <article class="legal">
   <div class="draft" role="note">
-    ⚠️ <strong>Draft — not yet legally reviewed.</strong> Starter wording to be
-    checked by a qualified solicitor / data-protection adviser and have its
-    placeholders completed before launch. It is not legal advice. If you operate in
-    the UK you may also need to register with the ICO.
+    ⚠️ <strong>Draft — not yet legally reviewed.</strong> Starter wording to be checked by a qualified
+    solicitor / data-protection adviser and have its placeholders completed before launch. It is not legal
+    advice. If you operate in the UK you may also need to register with the ICO.
   </div>
 
   <h1>Privacy Policy</h1>
@@ -29,36 +28,37 @@
   <ul>
     <li><strong>Account data:</strong> your name, email address, and a hashed password.</li>
     <li>
-      <strong>Content you upload:</strong> your photos and videos, stored
-      byte-for-byte in Cloudflare R2, plus thumbnails/previews we derive from them.
-      By default we strip location/EXIF metadata from previews.
+      <strong>Content you upload:</strong> your photos and videos, stored byte-for-byte in Cloudflare
+      R2, plus thumbnails/previews we derive from them. By default we strip location/EXIF metadata from
+      previews.
     </li>
     <li><strong>Usage &amp; metering:</strong> storage used, group membership, favourites.</li>
     <li><strong>Technical data:</strong> IP address and session information, for security.</li>
     <li>
-      <strong>Consent record:</strong> the time you confirmed you are 18+ and
-      accepted these policies.
+      <strong>Consent record:</strong> the time you confirmed you are 18+ and accepted these policies.
     </li>
   </ul>
 
   <h2>3. Legal bases</h2>
   <p>
-    We process your data to perform our contract with you (providing the Service),
-    on the basis of your consent (sign-up; optional features), and for our
-    legitimate interests in keeping the Service secure and lawful.
+    We process your data to perform our contract with you (providing the Service), on the basis of
+    your consent (sign-up; optional features), and for our legitimate interests in keeping the
+    Service secure and lawful.
   </p>
 
   <h2>4. How your content is stored &amp; who can see it</h2>
   <p>
-    Storage buckets are private; content is served only through short-lived signed
-    URLs and only to members of the groups you share it with. We do not sell your
-    data or use your content for advertising or model training.
+    Storage buckets are private; content is served only through short-lived signed URLs and only to
+    members of the groups you share it with. We do not sell your data or use your content for
+    advertising or model training.
   </p>
 
   <h2>5. Processors we share data with</h2>
   <ul>
     <li><strong>Cloudflare R2</strong> — object storage for originals and derivatives.</li>
-    <li><strong>Stripe</strong> / <strong>RevenueCat</strong> — payment processing for paid plans.</li>
+    <li>
+      <strong>Stripe</strong> / <strong>RevenueCat</strong> — payment processing for paid plans.
+    </li>
     <li><strong>Sentry</strong> — error monitoring (may include limited technical identifiers).</li>
     <li>[Your email provider] — transactional email, once configured.</li>
   </ul>
@@ -66,24 +66,23 @@
 
   <h2>6. Content safety</h2>
   <p>
-    To keep the Service lawful we run automated safety checks on uploads. Suspected
-    illegal content is quarantined and preserved as evidence, and reported to the
-    relevant authorities (in the UK, the Internet Watch Foundation and the police).
+    To keep the Service lawful we run automated safety checks on uploads. Suspected illegal content
+    is quarantined and preserved as evidence, and reported to the relevant authorities (in the UK,
+    the Internet Watch Foundation and the police).
   </p>
 
   <h2>7. Retention</h2>
   <p>
-    We keep your data while your account is active. When you delete your account we
-    erase your uploaded originals and account record [state any limited retention
-    for legal/safety or backup rotation].
+    We keep your data while your account is active. When you delete your account we erase your
+    uploaded originals and account record [state any limited retention for legal/safety or backup
+    rotation].
   </p>
 
   <h2>8. Your rights</h2>
   <p>Under UK/EU data protection law you can:</p>
   <ul>
     <li>
-      <strong>Access / export</strong> your data — download a copy from Settings, or
-      ask us.
+      <strong>Access / export</strong> your data — download a copy from Settings, or ask us.
     </li>
     <li><strong>Erase</strong> your data — delete your account from Settings.</li>
     <li><strong>Rectify</strong> inaccurate data, and object to or restrict processing.</li>
@@ -95,8 +94,8 @@
 
   <h2>10. International transfers</h2>
   <p>
-    Some processors may store or process data outside the UK/EEA under appropriate
-    safeguards [confirm transfer mechanisms].
+    Some processors may store or process data outside the UK/EEA under appropriate safeguards
+    [confirm transfer mechanisms].
   </p>
 
   <h2>11. Changes &amp; contact</h2>

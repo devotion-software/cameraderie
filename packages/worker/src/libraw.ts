@@ -36,7 +36,11 @@ function run(bin: string, args: string[], timeoutSeconds: number): Promise<void>
     child.on('close', (code, signal) => {
       if (code === 0) resolve();
       else if (signal)
-        reject(new Error(`${bin} killed by ${signal} (timeout ${timeoutSeconds}s): ${stderr.slice(-500)}`));
+        reject(
+          new Error(
+            `${bin} killed by ${signal} (timeout ${timeoutSeconds}s): ${stderr.slice(-500)}`,
+          ),
+        );
       else reject(new Error(`${bin} exited ${code}: ${stderr.slice(-500)}`));
     });
   });

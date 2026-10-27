@@ -57,7 +57,11 @@ describe('extractRevenueCatEvent', () => {
   });
 
   it('returns null eventId when the payload omits an id (dedup falls back to apply)', () => {
-    const ev = extractRevenueCatEvent({ app_user_id: 'u', entitlement_ids: ['pro'], type: 'PURCHASE' });
+    const ev = extractRevenueCatEvent({
+      app_user_id: 'u',
+      entitlement_ids: ['pro'],
+      type: 'PURCHASE',
+    });
     expect(ev!.eventId).toBeNull();
     expect(ev!.userId).toBe('u');
   });

@@ -96,7 +96,7 @@ This is the trickiest part of the client, implemented in
 
 1. The feed screen launches the system Photo Picker
    (`ActivityResultContracts.PickMultipleVisualMedia`) to get one or more content
-   `Uri`s — this is the only way to reliably get the *original* file without Android
+   `Uri`s — this is the only way to reliably get the _original_ file without Android
    recompressing it.
 2. Each selected `Uri` is handed to `UploadRepository.enqueueUpload()`, which enqueues a
    `UploadWorker` (a `CoroutineWorker`) via WorkManager so the upload survives the app
@@ -116,6 +116,7 @@ This is the trickiest part of the client, implemented in
      `{partNumber, etag}` list.
    - Any failure after step 1 triggers `POST /media/uploads/:mediaId/abort` before the
      worker reports failure (with limited automatic retry via `Result.retry()`).
+
 - `UploadWorker` publishes progress (`hashing` → `registering` → `uploading` (%) →
   `finalizing` → `done`) via `setProgress`, which `FeedViewModel` observes through
   `WorkManager.getWorkInfosByTagFlow("upload:<groupId>")` to drive the progress banner
@@ -148,7 +149,7 @@ This is the trickiest part of the client, implemented in
 - **App icon** uses a stock system drawable (`@android:drawable/sym_def_app_icon`) as a
   placeholder — swap in real launcher icons (`mipmap-*`) before shipping.
 - **Invite acceptance** has a minimal "Join with code" dialog on the groups screen
-  (`POST /invites/:code/accept`) but there's no dedicated screen for *generating*
+  (`POST /invites/:code/accept`) but there's no dedicated screen for _generating_
   shareable invite links from the member list yet (`GroupsRepository.createInvite()` /
   `GET /groups/:id/members` are wired up and ready to use for that).
 - **Pagination** on the feed screen is a simple "Load more" row driven by `nextCursor`

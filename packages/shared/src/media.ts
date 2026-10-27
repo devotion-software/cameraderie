@@ -124,7 +124,8 @@ export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024;
 export function isAllowedUpload(filename: string, mime?: string | null): boolean {
   const ext = extensionOf(filename);
   const m = (mime ?? '').toLowerCase();
-  if (RAW_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext)) return true;
+  if (RAW_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext))
+    return true;
   if (RAW_MIMES.has(m) || m.startsWith('image/') || m.startsWith('video/')) return true;
   return false;
 }

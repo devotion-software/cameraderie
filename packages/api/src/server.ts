@@ -14,6 +14,7 @@ import favouritesRoutes from './routes/favourites.js';
 import accountRoutes from './routes/account.js';
 import billingRoutes from './routes/billing.js';
 import moderationRoutes from './routes/moderation.js';
+import adminUsersRoutes from './routes/admin-users.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const env = loadEnv();
@@ -23,7 +24,10 @@ export async function buildServer(): Promise<FastifyInstance> {
       transport:
         env.NODE_ENV === 'production'
           ? undefined
-          : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
+          : {
+              target: 'pino-pretty',
+              options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
+            },
     },
     // Bytes never pass through the API; keep the JSON body limit modest.
     bodyLimit: 1024 * 1024,
@@ -31,27 +35,23 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Parse JSON but also retain the raw buffer on `request.rawBody` — Stripe
   // webhook signature verification needs the exact bytes that were signed.
-  app.addContentTypeParser(
-    'application/json',
-    { parseAs: 'buffer' },
-    (req, body: Buffer, done) => {
-      (req as unknown as { rawBody: Buffer }).rawBody = body;
-      if (body.length === 0) {
-        done(null, undefined);
-        return;
-      }
-      try {
-        done(null, JSON.parse(body.toString('utf8')));
-      } catch (err) {
-        done(err as Error, undefined);
-      }
-    },
-  );
+  app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body: Buffer, done) => {
+    (req as unknown as { rawBody: Buffer }).rawBody = body;
+    if (body.length === 0) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(body.toString('utf8')));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
 
   await app.register(cors, {
     origin: [env.WEB_URL],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Global IP rate limit; individual routes (uploads, invites) tighten this
@@ -71,9 +71,10 @@ export async function buildServer(): Promise<FastifyInstance> {
     req.log.error({ err }, 'unhandled error');
     const status = typeof err.statusCode === 'number' ? err.statusCode : 500;
     if (status >= 500) captureError(err);
-    reply
-      .code(status)
-      .send({ error: 'internal_error', message: status >= 500 ? 'Internal server error' : err.message });
+    reply.code(status).send({
+      error: 'internal_error',
+      message: status >= 500 ? 'Internal server error' : err.message,
+    });
   });
 
   app.get('/health', async () => ({ ok: true }));
@@ -113,6 +114,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(accountRoutes);
   await app.register(billingRoutes);
   await app.register(moderationRoutes);
+  await app.register(adminUsersRoutes);
 
   return app;
 }

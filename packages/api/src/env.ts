@@ -11,9 +11,10 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
   // Comma-separated allowlist of email addresses permitted to create an
-  // account. When set, every other sign-up is rejected — this is how the app
-  // stays invite-only/friends-only. When empty, sign-up is OPEN (dev default);
-  // set it before any public-facing deployment.
+  // account regardless of invites — a bootstrap mechanism for the first admin
+  // account (who has nobody to invite them). Every other sign-up must match a
+  // pending group invite's email (see auth.ts `isEmailInvited`); there is no
+  // open/public registration.
   ALLOWED_SIGNUP_EMAILS: z.string().optional(),
 
   R2_ACCOUNT_ID: z.string().min(1),

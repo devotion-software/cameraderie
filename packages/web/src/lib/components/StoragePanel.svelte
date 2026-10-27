@@ -10,7 +10,8 @@
 <section class="card storage-panel">
   <h2>Storage</h2>
   <div class="row">
-    <span class="muted">{formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} used</span>
+    <span class="muted">{formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} used</span
+    >
     <span class="spacer"></span>
     <span class="badge">{usage.plan}</span>
   </div>

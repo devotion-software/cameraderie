@@ -44,6 +44,14 @@ async function main() {
     console.log(`Demo user ${DEMO_EMAIL} already exists`);
   }
 
+  // The demo account is a local dev convenience: make it a site admin with
+  // both permissions so it can create groups/invites and manage other users'
+  // permissions without a chicken-and-egg bootstrap problem.
+  await db
+    .update(user)
+    .set({ role: 'admin', canCreateGroups: true, canInviteMembers: true })
+    .where(eq(user.id, userId));
+
   // Ensure a demo group owned by the demo user exists.
   const [group] = await db
     .select()
@@ -62,7 +70,9 @@ async function main() {
     console.log(`Created demo group "${DEMO_GROUP}"`);
   }
 
-  console.log(`\nSeed complete. Log in with:\n  email:    ${DEMO_EMAIL}\n  password: ${DEMO_PASSWORD}`);
+  console.log(
+    `\nSeed complete. Log in with:\n  email:    ${DEMO_EMAIL}\n  password: ${DEMO_PASSWORD}`,
+  );
 }
 
 main()

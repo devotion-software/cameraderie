@@ -11,9 +11,10 @@ Status legend: ☐ open · ☑ fixed (see "Fix log" at bottom)
 ## 🔴 Critical — reachable before/around auth
 
 ### C1 — DB & Redis published to the public internet in prod; Redis unauthenticated
+
 - **Where:** `docker-compose.yml:16-17,31-32`; `docker-compose.prod.yml` (never unpublishes them)
 - **What:** Base compose maps `3306:3306` (MariaDB) and `6379:6379` (Redis) to
-  `0.0.0.0`. The prod overlay only *adds* Caddy. Redis has no `requirepass`.
+  `0.0.0.0`. The prod overlay only _adds_ Caddy. Redis has no `requirepass`.
   Docker's published ports write their own iptables rules and **bypass UFW**, so
   OS-level firewalling silently does not protect them.
 - **Impact:** Anonymous Redis (BullMQ queue tampering, `CONFIG SET` RCE primitives)
@@ -23,6 +24,7 @@ Status legend: ☐ open · ☑ fixed (see "Fix log" at bottom)
   the prod overlay; set a Redis password; move MinIO to a dev-only profile.
 
 ### C2 — RevenueCat webhook auth is optional → free plan upgrades for anyone
+
 - **Where:** `packages/api/src/routes/billing.ts:135`
 - **What:** The bearer secret is only checked `if (env.REVENUECAT_WEBHOOK_SECRET)`
   is set. On a Stripe-only deploy that never configures RevenueCat, the check is
@@ -38,6 +40,7 @@ Status legend: ☐ open · ☑ fixed (see "Fix log" at bottom)
 ## 🟠 High
 
 ### H3 — Signup allowlist fails open _(corroborated)_
+
 - **Where:** `packages/api/src/auth.ts:22-27`
 - **What:** Empty/unset `ALLOWED_SIGNUP_EMAILS` = fully open registration, guarded
   only by `console.warn`, even in production. One missing env var silently defeats
@@ -45,29 +48,34 @@ Status legend: ☐ open · ☑ fixed (see "Fix log" at bottom)
 - **Fix:** Hard-fail startup in production when the allowlist is empty.
 
 ### H4 — No timeouts/resource limits on media processing
+
 - **Where:** `packages/worker/src/ffmpeg.ts:11-24`, `packages/worker/src/libraw.ts:25-36`; no `mem_limit`/`cpus` on the `worker` compose service
 - **What:** `spawn` without timeout; no ffmpeg `-timelimit`/thread cap. Adversarial
   media (hang, pathological transcode, decompression bomb) ties up a worker slot
   indefinitely and can OOM the single-box host. Main untrusted-media DoS surface.
 
 ### H5 — Containers run as root
+
 - **Where:** all three Dockerfiles (no `USER`; `oven/bun:1` defaults to root)
 - **What:** Worker decodes untrusted media via ffmpeg/dcraw/libvips; a native
   decoder memory bug becomes root-level RCE in the container.
 
 ### H6 — ffmpeg protocol whitelist unrestricted → SSRF / local-file disclosure
+
 - **Where:** `packages/worker/src/ffmpeg.ts:33-101`
 - **What:** User files passed to `-i` with no `-protocol_whitelist file,crypto` and
   no forced demuxer. An allowlisted-extension file can be an HLS/concat playlist
   referencing external URLs or `/etc/passwd`, exfiltrated into the preview.
 
 ### H7 — Legal/compliance blockers
+
 - No Terms of Service, Privacy Policy, or cookie/consent pages in web routes.
 - No age gate at signup.
 - GDPR: right-to-erasure done (`DELETE /me`) but no data-export/portability and no
   consent capture. Mandatory for a UK photo app with personal data + payments.
 
 ### H8 — Zero automated tests on critical paths
+
 - Tests cover only pure helpers. Nothing guards quota enforcement, the 3-step
   upload broker, auth guards/`requireMembership`, account-deletion ownership
   transfer, moderation takedown, or billing webhook signature verification.
@@ -226,12 +234,13 @@ Status legend: ☐ open · ☑ fixed (see "Fix log" at bottom)
   - **Account deletion** — extracted `deleteAccountData` (from the DELETE /me handler)
     and tested: ownership transfers to the longest-standing member, solely-owned groups
     are deleted, the user's media is purged, other members' content is untouched.
-  Kept separate from `bun run test` (which stays DB-free, 26 tests) via an exclude glob;
-  CI gains an `integration` job with a MariaDB service. R2 is stubbed in tests that
-  purge. Verified: 13/13 integration tests pass against MariaDB 11; unit suite + api
-  typecheck still green.
+    Kept separate from `bun run test` (which stays DB-free, 26 tests) via an exclude glob;
+    CI gains an `integration` job with a MariaDB service. R2 is stubbed in tests that
+    purge. Verified: 13/13 integration tests pass against MariaDB 11; unit suite + api
+    typecheck still green.
 
 ### Still open (next up)
+
 All High items are now addressed. Remaining: the Medium/Low items above, plus two
 non-code launch tasks — H7's legal review (fill placeholders, solicitor sign-off) and
 running migrations `0004`/`0005` on deploy.

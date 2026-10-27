@@ -41,11 +41,7 @@ export async function downloadToFile(key: string, destPath: string): Promise<voi
 }
 
 /** Upload a derivative buffer to R2. */
-export async function putObject(
-  key: string,
-  body: Buffer,
-  contentType: string,
-): Promise<void> {
+export async function putObject(key: string, body: Buffer, contentType: string): Promise<void> {
   await s3().send(
     new PutObjectCommand({ Bucket: bucket(), Key: key, Body: body, ContentType: contentType }),
   );

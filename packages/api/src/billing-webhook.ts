@@ -11,9 +11,7 @@
  */
 export function isDuplicateKeyError(err: unknown): boolean {
   const e = err as
-    | { errno?: number; code?: string; cause?: { errno?: number; code?: string } }
-    | null
-    | undefined;
+    { errno?: number; code?: string; cause?: { errno?: number; code?: string } } | null | undefined;
   return (
     e?.errno === 1062 ||
     e?.code === 'ER_DUP_ENTRY' ||
@@ -45,5 +43,11 @@ export function extractRevenueCatEvent(body: Record<string, unknown>): RevenueCa
   const type = (ev.type as string | undefined)?.toUpperCase() ?? '';
   const active = !['CANCELLATION', 'EXPIRATION', 'REFUND'].includes(type) && entitlement !== null;
   const expiresMs = ev.expiration_at_ms as number | undefined;
-  return { userId, eventId, entitlement, active, expiresAt: expiresMs ? new Date(expiresMs) : null };
+  return {
+    userId,
+    eventId,
+    entitlement,
+    active,
+    expiresAt: expiresMs ? new Date(expiresMs) : null,
+  };
 }

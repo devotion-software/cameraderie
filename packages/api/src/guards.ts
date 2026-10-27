@@ -13,6 +13,8 @@ export interface SessionUser {
   usedBytes: number;
   plan: string;
   role: string;
+  canCreateGroups: boolean;
+  canInviteMembers: boolean;
 }
 
 /** Convert Fastify's incoming headers into a web `Headers` for Better Auth. */
@@ -38,6 +40,8 @@ export async function requireUser(req: FastifyRequest): Promise<SessionUser> {
     usedBytes: typeof u.usedBytes === 'number' ? u.usedBytes : 0,
     plan: typeof u.plan === 'string' ? u.plan : 'free',
     role: typeof u.role === 'string' ? u.role : 'user',
+    canCreateGroups: u.canCreateGroups === true,
+    canInviteMembers: u.canInviteMembers === true,
   };
 }
 
@@ -46,6 +50,22 @@ export async function requireAdmin(req: FastifyRequest): Promise<SessionUser> {
   const me = await requireUser(req);
   if (me.role !== 'admin') throw forbidden('Admin access required');
   return me;
+}
+
+/**
+ * Require that the session user holds a given site-wide permission. Site
+ * admins always pass, regardless of the flag's value, so an admin can never
+ * lock themselves out.
+ */
+export function requirePermission(
+  me: SessionUser,
+  permission: 'canCreateGroups' | 'canInviteMembers',
+): void {
+  if (me.role === 'admin') return;
+  if (!me[permission]) {
+    const action = permission === 'canCreateGroups' ? 'create groups' : 'invite members';
+    throw forbidden(`You don't have permission to ${action}`);
+  }
 }
 
 const ROLE_RANK: Record<GroupRole, number> = { member: 0, admin: 1, owner: 2 };

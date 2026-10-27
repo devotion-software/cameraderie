@@ -26,11 +26,26 @@
           Groups
         </a>
         {#if ($session.data.user as { role?: string }).role === 'admin'}
-          <a href="/admin/reports" class="navlink" class:active={page.url.pathname.startsWith('/admin')}>
-            Admin
+          <a
+            href="/admin/reports"
+            class="navlink"
+            class:active={page.url.pathname.startsWith('/admin/reports')}
+          >
+            Reports
+          </a>
+          <a
+            href="/admin/users"
+            class="navlink"
+            class:active={page.url.pathname.startsWith('/admin/users')}
+          >
+            Users
           </a>
         {/if}
-        <a href="/settings" class="navlink" class:active={page.url.pathname.startsWith('/settings')}>
+        <a
+          href="/settings"
+          class="navlink"
+          class:active={page.url.pathname.startsWith('/settings')}
+        >
           Settings
         </a>
       </nav>

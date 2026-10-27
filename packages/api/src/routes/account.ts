@@ -59,7 +59,12 @@ export default async function accountRoutes(app: FastifyInstance) {
       .innerJoin(groups, eq(memberships.groupId, groups.id))
       .where(eq(memberships.userId, me.id));
     const ownedGroups = await db
-      .select({ id: groups.id, name: groups.name, description: groups.description, createdAt: groups.createdAt })
+      .select({
+        id: groups.id,
+        name: groups.name,
+        description: groups.description,
+        createdAt: groups.createdAt,
+      })
       .from(groups)
       .where(eq(groups.ownerId, me.id));
     const myMedia = await db
@@ -94,10 +99,7 @@ export default async function accountRoutes(app: FastifyInstance) {
       .where(eq(subscriptions.userId, me.id))
       .limit(1);
 
-    reply.header(
-      'content-disposition',
-      `attachment; filename="cameraderie-export-${me.id}.json"`,
-    );
+    reply.header('content-disposition', `attachment; filename="cameraderie-export-${me.id}.json"`);
     return {
       exportFormatVersion: 1,
       account: profile

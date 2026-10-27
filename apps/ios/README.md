@@ -138,7 +138,7 @@ failed tile retries from scratch.
   contract; it doesn't try to interpret it.
 - **RAW/HEIC display**: `AsyncImage` can decode what `UIImage`/ImageIO
   supports on-device; very exotic RAW formats may not render in the preview
-  even though the *original* bytes were uploaded/downloaded correctly.
+  even though the _original_ bytes were uploaded/downloaded correctly.
 - **Invites**: `POST /groups/:id/invites` and `POST /invites/:code/accept`
   are implemented in `Networking/Endpoints.swift` (`API.createInvite`,
   `API.acceptInvite`), but there's no dedicated invite UI yet (not in the

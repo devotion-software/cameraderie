@@ -76,7 +76,8 @@ export default async function moderationRoutes(app: FastifyInstance) {
           .set({ status: 'actioned', reviewedBy: admin.id, reviewedAt: new Date() })
           .where(and(eq(reports.mediaId, report.mediaId), eq(reports.status, 'open')));
         const [row] = await db.select().from(media).where(eq(media.id, report.mediaId)).limit(1);
-        if (row) await purgeMedia(row, (err) => req.log.error({ err }, 'takedown R2 delete failed'));
+        if (row)
+          await purgeMedia(row, (err) => req.log.error({ err }, 'takedown R2 delete failed'));
       } else {
         // Media already gone; just mark this report actioned.
         await db

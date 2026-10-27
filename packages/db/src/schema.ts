@@ -39,6 +39,10 @@ export const user = mysqlTable('user', {
   plan: varchar('plan', { length: 32 }).notNull().default('free'),
   /** Site-wide role: 'user' or 'admin' (admins can review reports / take down media). */
   role: varchar('role', { length: 32 }).notNull().default('user'),
+  /** Permission: may create a new group. Site admins bypass this check. */
+  canCreateGroups: boolean('can_create_groups').notNull().default(false),
+  /** Permission: may invite new members to a group they admin. Site admins bypass this check. */
+  canInviteMembers: boolean('can_invite_members').notNull().default(false),
   /**
    * When the user confirmed they are 18+ and accepted the Terms + Privacy Policy
    * at sign-up. Null for accounts created before this gate existed. Kept as a
@@ -155,12 +159,22 @@ export const invites = mysqlTable(
     createdBy: varchar('created_by', { length: 64 })
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    /**
+     * Optional: restricts this invite to one email address. When set, it both
+     * (a) gates account sign-up — that email becomes allowed to register even
+     * without a static allowlist entry — and (b) restricts who can accept the
+     * invite once they have an account.
+     */
+    inviteeEmail: varchar('invitee_email', { length: 255 }),
     maxUses: int('max_uses'),
     uses: int('uses').notNull().default(0),
     expiresAt: timestamp('expires_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [index('invites_group_idx').on(t.groupId)],
+  (t) => [
+    index('invites_group_idx').on(t.groupId),
+    index('invites_invitee_email_idx').on(t.inviteeEmail),
+  ],
 );
 
 export const media = mysqlTable(

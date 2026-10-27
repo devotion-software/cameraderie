@@ -54,7 +54,8 @@ export default async function billingRoutes(app: FastifyInstance) {
     const client = stripe();
     if (!client) throw badRequest('Billing is not configured', 'billing_unavailable');
     const price = PLAN_TO_PRICE[body.plan];
-    if (!price) throw badRequest(`No price configured for the ${body.plan} plan`, 'billing_unavailable');
+    if (!price)
+      throw badRequest(`No price configured for the ${body.plan} plan`, 'billing_unavailable');
 
     const session = await client.checkout.sessions.create({
       mode: 'subscription',
@@ -115,7 +116,9 @@ export default async function billingRoutes(app: FastifyInstance) {
         const priceId = sub.items.data[0]?.price.id;
         const plan = priceToPlan(priceId) ?? 'pro';
         const active = sub.status === 'active' || sub.status === 'trialing';
-        const periodEnd = toDate((sub as unknown as { current_period_end?: number }).current_period_end);
+        const periodEnd = toDate(
+          (sub as unknown as { current_period_end?: number }).current_period_end,
+        );
         if (userId) target = { userId, plan, active, periodEnd };
         break;
       }
@@ -146,7 +149,10 @@ export default async function billingRoutes(app: FastifyInstance) {
 
   // ── RevenueCat ───────────────────────────────────────────────────────────────
 
-  async function handleRevenueCatWebhook(req: FastifyRequest, reply: { code: (n: number) => unknown }) {
+  async function handleRevenueCatWebhook(
+    req: FastifyRequest,
+    reply: { code: (n: number) => unknown },
+  ) {
     // RevenueCat signs by a shared Authorization header you configure in its dashboard.
     // Fail closed: without a configured secret we cannot authenticate the caller, and
     // the payload's `app_user_id` is attacker-controlled — trusting it would let anyone
@@ -155,7 +161,8 @@ export default async function billingRoutes(app: FastifyInstance) {
       throw badRequest('RevenueCat webhooks are not configured', 'billing_unavailable');
     }
     const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${env.REVENUECAT_WEBHOOK_SECRET}`) throw unauthorized('Bad webhook secret');
+    if (auth !== `Bearer ${env.REVENUECAT_WEBHOOK_SECRET}`)
+      throw unauthorized('Bad webhook secret');
     const body = (req.body ?? {}) as Record<string, unknown>;
     const event = extractRevenueCatEvent(body);
     if (!event) {

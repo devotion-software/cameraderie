@@ -96,7 +96,12 @@ export async function presignParts(
   for (const partNumber of partNumbers) {
     const url = await getSignedUrl(
       s3(),
-      new UploadPartCommand({ Bucket: bucket(), Key: key, UploadId: uploadId, PartNumber: partNumber }),
+      new UploadPartCommand({
+        Bucket: bucket(),
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+      }),
       { expiresIn: ttl() },
     );
     parts.push({ partNumber, url });

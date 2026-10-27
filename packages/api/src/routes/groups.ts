@@ -5,7 +5,7 @@ import { createGroupBody, setGroupCoverBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
 import { presignGet } from '../r2.js';
-import { requireMembership, requireUser } from '../guards.js';
+import { requireMembership, requirePermission, requireUser } from '../guards.js';
 import { parse } from '../validate.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
 
@@ -35,6 +35,7 @@ export default async function groupsRoutes(app: FastifyInstance) {
   // Create a group; the creator becomes its owner.
   app.post('/groups', async (req) => {
     const me = await requireUser(req);
+    requirePermission(me, 'canCreateGroups');
     const body = parse(createGroupBody, req.body);
     const groupId = newId();
     await db.transaction(async (tx) => {

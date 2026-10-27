@@ -1,8 +1,4 @@
-import type {
-  BeginUploadResponse,
-  PresignedPart,
-  UploadStatusResponse,
-} from '@cameraderie/shared';
+import type { BeginUploadResponse, PresignedPart, UploadStatusResponse } from '@cameraderie/shared';
 import { api, ApiError } from './api';
 
 /**
@@ -52,7 +48,8 @@ export async function uploadFile(
   let pending: PresignedPart[] = begin.parts;
   let doneParts = 0;
 
-  const reportProgress = () => onProgress?.(Math.min(1, (doneParts * partSize) / Math.max(1, file.size)));
+  const reportProgress = () =>
+    onProgress?.(Math.min(1, (doneParts * partSize) / Math.max(1, file.size)));
 
   let lastErr: unknown;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

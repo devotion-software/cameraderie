@@ -89,7 +89,9 @@ const heartbeat = setInterval(() => {
 heartbeat.unref();
 void writeFile(HEARTBEAT_FILE, String(Date.now())).catch(() => {});
 
-console.log(`[worker] listening on "${DERIVATIVES_QUEUE}" with concurrency ${env.WORKER_CONCURRENCY}`);
+console.log(
+  `[worker] listening on "${DERIVATIVES_QUEUE}" with concurrency ${env.WORKER_CONCURRENCY}`,
+);
 
 const shutdown = async (signal: string) => {
   console.log(`[worker] ${signal} received, shutting down`);

@@ -29,7 +29,11 @@ function run(
     child.on('close', (code, signal) => {
       if (code === 0) resolve({ stdout, stderr });
       else if (signal)
-        reject(new Error(`${bin} killed by ${signal} (timeout ${timeoutSeconds}s): ${stderr.slice(-500)}`));
+        reject(
+          new Error(
+            `${bin} killed by ${signal} (timeout ${timeoutSeconds}s): ${stderr.slice(-500)}`,
+          ),
+        );
       else reject(new Error(`${bin} exited ${code}: ${stderr.slice(-500)}`));
     });
   });
@@ -76,7 +80,8 @@ export async function probe(inputPath: string): Promise<ProbeResult> {
   return {
     width: stream?.width ?? null,
     height: stream?.height ?? null,
-    durationMs: durationSec !== null && !Number.isNaN(durationSec) ? Math.round(durationSec * 1000) : null,
+    durationMs:
+      durationSec !== null && !Number.isNaN(durationSec) ? Math.round(durationSec * 1000) : null,
   };
 }
 

@@ -81,8 +81,7 @@
   }
 
   const canDelete = $derived(
-    !!item &&
-      (item.uploaderId === $session.data?.user?.id || group?.myRole === 'owner'),
+    !!item && (item.uploaderId === $session.data?.user?.id || group?.myRole === 'owner'),
   );
 
   let reported = $state(false);
