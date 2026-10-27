@@ -1,12 +1,33 @@
 import type { FastifyInstance } from 'fastify';
-import { and, desc, eq } from 'drizzle-orm';
-import { groups, memberships, user } from '@cameraderie/db';
-import { createGroupBody } from '@cameraderie/shared';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { derivatives, groups, media, memberships, user } from '@cameraderie/db';
+import { createGroupBody, setGroupCoverBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
+import { presignGet } from '../r2.js';
 import { requireMembership, requireUser } from '../guards.js';
 import { parse } from '../validate.js';
-import { forbidden, notFound } from '../errors.js';
+import { badRequest, forbidden, notFound } from '../errors.js';
+
+/** Batch-presign the ready thumbnail for each of the given media ids, if any. */
+async function coverThumbnailUrls(mediaIds: string[]): Promise<Record<string, string>> {
+  const ids = mediaIds.filter(Boolean);
+  if (ids.length === 0) return {};
+  const rows = await getDb()
+    .select({ mediaId: derivatives.mediaId, objectKey: derivatives.objectKey })
+    .from(derivatives)
+    .where(
+      and(
+        inArray(derivatives.mediaId, ids),
+        eq(derivatives.kind, 'thumbnail'),
+        eq(derivatives.state, 'ready'),
+      ),
+    );
+  const entries = await Promise.all(
+    rows.map(async (r) => [r.mediaId, await presignGet(r.objectKey)] as const),
+  );
+  return Object.fromEntries(entries);
+}
 
 export default async function groupsRoutes(app: FastifyInstance) {
   const db = getDb();
@@ -43,7 +64,14 @@ export default async function groupsRoutes(app: FastifyInstance) {
       .innerJoin(groups, eq(groups.id, memberships.groupId))
       .where(eq(memberships.userId, me.id))
       .orderBy(desc(groups.createdAt));
-    return { groups: rows.map((r) => ({ ...r.group, myRole: r.role })) };
+    const covers = await coverThumbnailUrls(rows.map((r) => r.group.coverMediaId ?? ''));
+    return {
+      groups: rows.map((r) => ({
+        ...r.group,
+        myRole: r.role,
+        coverThumbnailUrl: r.group.coverMediaId ? (covers[r.group.coverMediaId] ?? null) : null,
+      })),
+    };
   });
 
   // Group detail (members only).
@@ -52,7 +80,38 @@ export default async function groupsRoutes(app: FastifyInstance) {
     await requireMembership(req.params.id, me.id);
     const [group] = await db.select().from(groups).where(eq(groups.id, req.params.id)).limit(1);
     if (!group) throw notFound('Group not found');
-    return { group };
+    const covers = await coverThumbnailUrls([group.coverMediaId ?? '']);
+    return {
+      group: {
+        ...group,
+        coverThumbnailUrl: group.coverMediaId ? (covers[group.coverMediaId] ?? null) : null,
+      },
+    };
+  });
+
+  // Set the group's cover photo to one of its own media items (admin/owner only).
+  app.put<{ Params: { id: string } }>('/groups/:id/cover', async (req) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id, 'admin');
+    const body = parse(setGroupCoverBody, req.body);
+    const [item] = await db
+      .select({ id: media.id, groupId: media.groupId, state: media.state })
+      .from(media)
+      .where(eq(media.id, body.mediaId))
+      .limit(1);
+    if (!item || item.groupId !== req.params.id) throw notFound('Media not found in this group');
+    if (item.state !== 'ready') throw badRequest('Media is not ready to use as a cover');
+    await db.update(groups).set({ coverMediaId: item.id }).where(eq(groups.id, req.params.id));
+    const covers = await coverThumbnailUrls([item.id]);
+    return { coverMediaId: item.id, coverThumbnailUrl: covers[item.id] ?? null };
+  });
+
+  // Clear the group's cover photo (admin/owner only).
+  app.delete<{ Params: { id: string } }>('/groups/:id/cover', async (req, reply) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id, 'admin');
+    await db.update(groups).set({ coverMediaId: null }).where(eq(groups.id, req.params.id));
+    reply.code(204);
   });
 
   // List members (members only).

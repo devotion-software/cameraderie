@@ -43,6 +43,13 @@
       "when": 1791450710341,
       "tag": "0005_slippery_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1793143213692,
+      "tag": "0006_amazing_nebula",
+      "breakpoints": true
     }
   ]
 }

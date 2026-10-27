@@ -120,6 +120,11 @@
   <div class="group-list">
     {#each groups as g (g.id)}
       <a class="card group" href="/groups/{g.id}">
+        {#if g.coverThumbnailUrl}
+          <img class="cover" src={g.coverThumbnailUrl} alt="" />
+        {:else}
+          <div class="cover placeholder"></div>
+        {/if}
         <strong>{g.name}</strong>
         {#if g.description}<span class="muted">{g.description}</span>{/if}
         <span class="badge">{g.myRole}</span>
@@ -152,10 +157,22 @@
     flex-direction: column;
     gap: 6px;
     align-items: flex-start;
+    overflow: hidden;
     transition:
       transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1),
       box-shadow 0.2s ease,
       border-color 0.2s ease;
+  }
+  .cover {
+    width: calc(100% + 44px);
+    margin: -22px -22px 6px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    background: var(--surface-2);
+  }
+  .cover.placeholder {
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%);
   }
   .group strong {
     font-family: var(--font-display);

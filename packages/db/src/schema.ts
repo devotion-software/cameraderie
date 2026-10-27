@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  type AnyMySqlColumn,
   bigint,
   boolean,
   index,
@@ -113,6 +114,12 @@ export const groups = mysqlTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     /** Strip EXIF/GPS from derivative previews (originals keep everything). */
     stripExifFromPreviews: boolean('strip_exif_from_previews').notNull().default(true),
+    // Nullable + set null so the group survives if its chosen cover photo is
+    // later deleted — same pattern as reports.mediaId.
+    coverMediaId: varchar('cover_media_id', { length: 64 }).references(
+      (): AnyMySqlColumn => media.id,
+      { onDelete: 'set null' },
+    ),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('groups_owner_idx').on(t.ownerId)],
@@ -309,6 +316,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
 
 export const groupsRelations = relations(groups, ({ one, many }) => ({
   owner: one(user, { fields: [groups.ownerId], references: [user.id] }),
+  coverMedia: one(media, { fields: [groups.coverMediaId], references: [media.id] }),
   memberships: many(memberships),
   media: many(media),
   invites: many(invites),

@@ -5,6 +5,8 @@ export interface Group {
   name: string;
   description: string | null;
   ownerId: string;
+  coverMediaId: string | null;
+  coverThumbnailUrl: string | null;
   createdAt: string;
   myRole?: 'owner' | 'admin' | 'member';
 }

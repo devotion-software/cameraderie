@@ -110,6 +110,26 @@
   }
 
   const canInvite = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
+  const canManageCover = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
+
+  let settingCover = $state<string | null>(null);
+  async function setCover(mediaId: string, e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!group) return;
+    settingCover = mediaId;
+    try {
+      const res = await api.put<{ coverMediaId: string; coverThumbnailUrl: string | null }>(
+        `/groups/${groupId}/cover`,
+        { mediaId },
+      );
+      group = { ...group, coverMediaId: res.coverMediaId, coverThumbnailUrl: res.coverThumbnailUrl };
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to set cover photo';
+    } finally {
+      settingCover = null;
+    }
+  }
 </script>
 
 {#if group}
@@ -186,6 +206,17 @@
         {/if}
         {#if m.favouriteCount > 0}
           <span class="overlay fav">♥ {m.favouriteCount}</span>
+        {/if}
+        {#if canManageCover && m.thumbnailUrl}
+          <button
+            class="overlay cover-btn"
+            class:is-cover={group?.coverMediaId === m.id}
+            onclick={(e) => setCover(m.id, e)}
+            disabled={settingCover === m.id}
+            title={group?.coverMediaId === m.id ? 'Current cover photo' : 'Set as group cover'}
+          >
+            {group?.coverMediaId === m.id ? '★' : '☆'}
+          </button>
         {/if}
       </a>
     {/each}
@@ -329,6 +360,31 @@
   .overlay.fav {
     right: 8px;
     bottom: 8px;
+  }
+  .cover-btn {
+    right: 8px;
+    top: 8px;
+    border: none;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.55;
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s ease;
+  }
+  .tile:hover .cover-btn,
+  .cover-btn.is-cover {
+    opacity: 1;
+  }
+  .cover-btn:hover:not(:disabled) {
+    transform: scale(1.15);
+  }
+  .cover-btn:disabled {
+    cursor: wait;
+  }
+  .cover-btn.is-cover {
+    color: #ffd166;
   }
   .spinner {
     width: 12px;

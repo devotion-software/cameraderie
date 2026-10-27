@@ -14,6 +14,11 @@ export const createGroupBody = z.object({
 });
 export type CreateGroupBody = z.infer<typeof createGroupBody>;
 
+export const setGroupCoverBody = z.object({
+  mediaId: z.string().trim().min(1),
+});
+export type SetGroupCoverBody = z.infer<typeof setGroupCoverBody>;
+
 export const createInviteBody = z.object({
   /** Optional cap on how many people may accept this invite. */
   maxUses: z.number().int().positive().max(1000).optional(),
