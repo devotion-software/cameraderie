@@ -179,7 +179,7 @@
   }
   .fill {
     height: 100%;
-    background: var(--accent);
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
   }
   .plans {
     display: grid;
@@ -188,7 +188,8 @@
   }
   .plan {
     border: 1px solid var(--border);
-    border-radius: 10px;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
     padding: 14px;
     display: flex;
     flex-direction: column;
@@ -196,12 +197,13 @@
   }
   .plan.current {
     border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-soft);
   }
   .small {
     font-size: 13px;
     margin-bottom: 0;
   }
   .danger-zone {
-    border-color: rgba(255, 107, 107, 0.4);
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   }
 </style>

@@ -99,13 +99,15 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: var(--accent);
-    color: white;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: var(--accent-ink);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
+    font-family: var(--font-display);
     flex: 0 0 auto;
+    box-shadow: 0 4px 14px -4px hsl(var(--shadow-color) / 0.5);
   }
   .who {
     display: flex;

@@ -59,6 +59,7 @@
 </script>
 
 <div class="head">
+  <p class="eyebrow">Together</p>
   <h1>Your groups</h1>
 </div>
 
@@ -119,7 +120,8 @@
   }
   .fill {
     height: 100%;
-    background: var(--accent);
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 0 12px var(--accent-soft);
   }
   .create {
     display: flex;
@@ -129,7 +131,7 @@
   }
   .group-list {
     display: grid;
-    gap: 12px;
+    gap: 14px;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
   .group {
@@ -137,9 +139,22 @@
     flex-direction: column;
     gap: 6px;
     align-items: flex-start;
+    transition:
+      transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1),
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .group strong {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
   }
   .group:hover {
     text-decoration: none;
     border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow:
+      0 16px 40px -16px hsl(var(--shadow-color) / 0.45),
+      inset 0 1px 0 var(--glass-highlight);
   }
 </style>

@@ -178,6 +178,7 @@
     justify-content: center;
     background: #000;
     min-height: 240px;
+    border-radius: var(--radius-lg);
   }
   .stage img,
   .stage video {
@@ -208,6 +209,8 @@
   }
   .meta dt {
     color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 600;
   }
   .meta dd {
     margin: 0;
