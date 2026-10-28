@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade, scale, slide } from 'svelte/transition';
+  import { backOut } from 'svelte/easing';
   import { flip } from 'svelte/animate';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -1095,7 +1096,14 @@
               onclick={(e) => toggleFavourite(m, e)}
               title={m.favourited ? 'Unlike' : 'Like'}
             >
-              <span class="heart" class:mine={m.favourited}>{m.favourited ? '♥' : '♡'}</span>
+              {#key m.favourited}
+                <span
+                  class="heart"
+                  class:mine={m.favourited}
+                  in:scale={{ duration: 280, start: 0.4, easing: backOut }}
+                  >{m.favourited ? '♥' : '♡'}</span
+                >
+              {/key}
               {#if m.favouriteCount > 0}{m.favouriteCount}{/if}
             </button>
           </div>
@@ -1670,6 +1678,9 @@
   .overlay.fav:focus-visible {
     opacity: 1;
     pointer-events: auto;
+  }
+  .overlay.fav .heart {
+    display: inline-block;
   }
   .overlay.fav .heart.mine {
     color: var(--danger);

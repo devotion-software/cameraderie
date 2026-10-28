@@ -1,5 +1,6 @@
 <script lang="ts">
   import { scale, slide } from 'svelte/transition';
+  import { backOut } from 'svelte/easing';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
@@ -348,7 +349,11 @@
 
   <div class="bar">
     <button class="btn secondary" onclick={toggleFavourite}>
-      {item.favourited ? '♥' : '♡'}
+      {#key item.favourited}
+        <span class="heart-pop" in:scale={{ duration: 280, start: 0.4, easing: backOut }}
+          >{item.favourited ? '♥' : '♡'}</span
+        >
+      {/key}
       {item.favouriteCount}
     </button>
     <div class="download-wrap">
@@ -583,6 +588,9 @@
     gap: 10px;
     align-items: center;
     margin: 16px 0;
+  }
+  .heart-pop {
+    display: inline-block;
   }
   .download-wrap {
     position: relative;
