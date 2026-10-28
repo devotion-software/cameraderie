@@ -82,15 +82,26 @@
   {#if error}<p class="error">{error}</p>{/if}
 </div>
 
+<svelte:window onkeydown={(e) => lightboxOpen && e.key === 'Escape' && (lightboxOpen = false)} />
+
 {#if lightboxOpen}
   <div
     class="lightbox"
-    role="button"
-    tabindex="0"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
     onclick={() => (lightboxOpen = false)}
-    onkeydown={(e) => e.key === 'Escape' && (lightboxOpen = false)}
   >
-    <Avatar {name} src={avatarUrl} size={280} />
+    <button class="lightbox-close" onclick={() => (lightboxOpen = false)} aria-label="Close">
+      ✕
+    </button>
+    <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
+      {#if avatarUrl}
+        <img src={avatarUrl} alt={name} />
+      {:else}
+        <Avatar {name} src={null} size={280} />
+      {/if}
+    </div>
   </div>
 {/if}
 
@@ -120,11 +131,37 @@
   .lightbox {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: 200;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgb(0 0 0 / 0.7);
+    background: rgb(0 0 0 / 0.85);
+  }
+  .lightbox-content {
+    display: flex;
+    max-width: min(92vw, 1100px);
+    max-height: 90vh;
+  }
+  .lightbox-content img {
+    max-width: min(92vw, 1100px);
+    max-height: 90vh;
+    border-radius: var(--radius-sm);
+    display: block;
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: rgb(255 255 255 / 0.12);
+    color: #fff;
+    font-size: 16px;
     cursor: pointer;
+  }
+  .lightbox-close:hover {
+    background: rgb(255 255 255 / 0.22);
   }
 </style>
