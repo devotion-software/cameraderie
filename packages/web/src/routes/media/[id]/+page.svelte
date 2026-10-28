@@ -117,12 +117,27 @@
       : null,
   );
 
-  function loadSiblingIds(groupId: string) {
+  async function loadSiblingIds(groupId: string) {
     siblingIds = [];
-    if (typeof sessionStorage === 'undefined') return;
+    const key = `cameraderie:feedOrder:${groupId}`;
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          siblingIds = JSON.parse(raw);
+          return;
+        }
+      } catch {
+        // fall through to the API fetch below
+      }
+    }
+    // No order stashed (direct link, refreshed tab, etc) — fetch the group's
+    // default (newest-first, unfiltered) order as a best-effort fallback.
     try {
-      const raw = sessionStorage.getItem(`cameraderie:feedOrder:${groupId}`);
-      if (raw) siblingIds = JSON.parse(raw);
+      const res = await api.get<{ media: MediaItem[] }>(
+        `/groups/${groupId}/media?limit=100&liked=false&sort=newest`,
+      );
+      siblingIds = res.media.map((m) => m.id);
     } catch {
       siblingIds = [];
     }
@@ -146,7 +161,7 @@
       item = res.media;
       const g = await api.get<{ group: Group }>(`/groups/${item.groupId}`);
       group = g.group;
-      loadSiblingIds(item.groupId);
+      await loadSiblingIds(item.groupId);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load';
     } finally {
