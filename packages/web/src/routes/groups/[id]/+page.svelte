@@ -24,6 +24,17 @@
   let sort = $state<'newest' | 'oldest'>('newest');
   const feedQuery = $derived(`liked=${likedOnly}&sort=${sort}`);
 
+  const TILE_FIT_KEY = 'cameraderie:tileFit';
+  let tileFit = $state<'square' | 'contain'>('square');
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem(TILE_FIT_KEY);
+    if (saved === 'contain' || saved === 'square') tileFit = saved;
+  }
+  function setTileFit(next: 'square' | 'contain') {
+    tileFit = next;
+    localStorage.setItem(TILE_FIT_KEY, next);
+  }
+
   const MEMBER_AVATAR_LIMIT = 5;
   const overflowing = $derived(members.length > MEMBER_AVATAR_LIMIT);
   const visibleMembers = $derived(
@@ -462,6 +473,22 @@
       ♥ Liked only
     </button>
     <span class="spacer"></span>
+    <div class="fit-toggle" role="group" aria-label="Image fit">
+      <button
+        class="fit-btn"
+        class:active={tileFit === 'square'}
+        onclick={() => setTileFit('square')}
+      >
+        Fit to square
+      </button>
+      <button
+        class="fit-btn"
+        class:active={tileFit === 'contain'}
+        onclick={() => setTileFit('contain')}
+      >
+        Contain
+      </button>
+    </div>
     <label class="sort-select">
       <span class="muted">Sort</span>
       <select
@@ -485,7 +512,7 @@
       : 'No photos or videos yet. Hit Upload to add the first.'}
   </p>
 {:else}
-  <div class="grid">
+  <div class="grid" class:contain-tiles={tileFit === 'contain'}>
     {#each items as m (m.id)}
       <a
         class="tile"
@@ -653,6 +680,24 @@
     border-color: var(--accent);
     color: var(--accent);
   }
+  .fit-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .fit-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    border: none;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .fit-btn.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
   .sort-select {
     display: flex;
     align-items: center;
@@ -756,6 +801,10 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+  .contain-tiles .tile img {
+    object-fit: contain;
+    background: var(--surface-2);
   }
   .placeholder {
     width: 100%;
