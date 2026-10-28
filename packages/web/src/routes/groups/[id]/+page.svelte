@@ -479,6 +479,7 @@
             {downloading ? 'Downloading…' : 'Download all'}
           </button>
           {#if showDownloadAllMenu}
+            <div class="menu-backdrop" onclick={() => (showDownloadAllMenu = false)}></div>
             <div class="download-menu" onclick={(e) => e.stopPropagation()}>
               <label class="quality-row">
                 <span class="muted">Quality</span>
@@ -545,6 +546,7 @@
         {downloading ? 'Downloading…' : 'Download'}
       </button>
       {#if showDownloadMenu}
+        <div class="menu-backdrop" onclick={() => (showDownloadMenu = false)}></div>
         <div class="download-menu" onclick={(e) => e.stopPropagation()}>
           <label class="quality-row">
             <span class="muted">Quality</span>
@@ -892,6 +894,14 @@
   }
   .download-wrap {
     position: relative;
+  }
+  .menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: rgb(0 0 0 / 0.15);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
   }
   .download-menu {
     position: absolute;
