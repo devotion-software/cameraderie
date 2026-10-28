@@ -107,16 +107,30 @@
     file: File;
     filePreviewUrl: string | null;
     duplicate: MediaItem;
+    remaining: number;
     resolve: (ok: boolean) => void;
   }
   let duplicatePrompt = $state<DuplicatePrompt | null>(null);
+  let filePreviewBroken = $state(false);
+  // When a batch upload turns up several duplicates in a row, "Skip all" /
+  // "Upload all" sets this so the rest of the batch applies the same choice
+  // without re-prompting. Reset at the start of each startUploads() call.
+  let bulkDuplicateAction = $state<'skip' | 'upload' | null>(null);
 
-  function confirmDuplicate(file: File, duplicate: MediaItem): Promise<boolean> {
+  function confirmDuplicate(file: File, duplicate: MediaItem, remaining: number): Promise<boolean> {
+    if (bulkDuplicateAction) return Promise.resolve(bulkDuplicateAction === 'upload');
     return new Promise((resolve) => {
+      // Some browsers report an empty `type` for HEIC/HEIF files, so fall
+      // back to the extension before giving up on a preview — the <img>'s
+      // onerror handler catches browsers that still can't decode it.
+      const looksLikeImage =
+        file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name);
+      filePreviewBroken = false;
       duplicatePrompt = {
         file,
-        filePreviewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        filePreviewUrl: looksLikeImage ? URL.createObjectURL(file) : null,
         duplicate,
+        remaining,
         resolve,
       };
     });
@@ -127,6 +141,11 @@
     if (duplicatePrompt.filePreviewUrl) URL.revokeObjectURL(duplicatePrompt.filePreviewUrl);
     duplicatePrompt.resolve(ok);
     duplicatePrompt = null;
+  }
+
+  function resolveDuplicatePromptForAll(ok: boolean) {
+    bulkDuplicateAction = ok ? 'upload' : 'skip';
+    resolveDuplicatePrompt(ok);
   }
 
   const MEMBER_AVATAR_LIMIT = 5;
@@ -251,7 +270,8 @@
   }
 
   async function startUploads(files: File[], keepGps: boolean, keepCameraExif: boolean) {
-    for (const file of files) {
+    bulkDuplicateAction = null;
+    for (const [i, file] of files.entries()) {
       uploads = [...uploads, { name: file.name, fraction: 0 }];
       // Index into the reactive `uploads` array itself (not the plain object
       // literal above) — $state proxifies the array on assignment, so a
@@ -261,7 +281,7 @@
         const checksumSha256 = await sha256Hex(file);
         const duplicate = await checkDuplicate(groupId, checksumSha256).catch(() => null);
         if (duplicate) {
-          const ok = await confirmDuplicate(file, duplicate);
+          const ok = await confirmDuplicate(file, duplicate, files.length - i - 1);
           if (!ok) {
             uploads[idx].error = 'Skipped — duplicate';
             continue;
@@ -684,10 +704,17 @@
       <div class="duplicate-compare">
         <div class="duplicate-side">
           <span class="muted small">New file</span>
-          {#if duplicatePrompt.filePreviewUrl}
-            <img src={duplicatePrompt.filePreviewUrl} alt={duplicatePrompt.file.name} />
+          {#if duplicatePrompt.filePreviewUrl && !filePreviewBroken}
+            <img
+              src={duplicatePrompt.filePreviewUrl}
+              alt={duplicatePrompt.file.name}
+              onerror={() => (filePreviewBroken = true)}
+            />
           {:else}
-            <div class="duplicate-placeholder">{duplicatePrompt.file.name}</div>
+            <div class="duplicate-placeholder">
+              <span class="duplicate-placeholder-name">{duplicatePrompt.file.name}</span>
+              <span class="duplicate-placeholder-note">No preview available</span>
+            </div>
           {/if}
         </div>
         <div class="duplicate-side">
@@ -703,8 +730,18 @@
         </div>
       </div>
       <div class="modal-actions">
+        {#if duplicatePrompt.remaining > 0}
+          <button class="btn ghost" onclick={() => resolveDuplicatePromptForAll(false)}
+            >Skip all</button
+          >
+        {/if}
         <button class="btn ghost" onclick={() => resolveDuplicatePrompt(false)}>Skip</button>
         <button class="btn" onclick={() => resolveDuplicatePrompt(true)}>Upload anyway</button>
+        {#if duplicatePrompt.remaining > 0}
+          <button class="btn" onclick={() => resolveDuplicatePromptForAll(true)}
+            >Upload all</button
+          >
+        {/if}
       </div>
     </div>
   </div>
@@ -1216,8 +1253,10 @@
   }
   .duplicate-placeholder {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 4px;
     aspect-ratio: 1;
     padding: 8px;
     border-radius: var(--radius-sm);
@@ -1227,6 +1266,10 @@
     font-size: 12px;
     text-align: center;
     overflow-wrap: anywhere;
+  }
+  .duplicate-placeholder-note {
+    font-size: 11px;
+    opacity: 0.75;
   }
   .map-card {
     margin-bottom: 20px;
