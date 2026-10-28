@@ -742,24 +742,6 @@
         {/if}
       </a>
       {#if items.length > 0}
-        <div class="fit-toggle" role="group" aria-label="View">
-          <button
-            class="fit-btn"
-            class:active={!showMap}
-            aria-pressed={!showMap}
-            onclick={() => setView(false)}
-          >
-            Grid
-          </button>
-          <button
-            class="fit-btn"
-            class:active={showMap}
-            aria-pressed={showMap}
-            onclick={() => setView(true)}
-          >
-            Map
-          </button>
-        </div>
         <div class="download-wrap">
           <button class="btn secondary" onclick={onDownloadAllClick} disabled={downloading}>
             {downloading ? 'Downloading…' : 'Download all'}
@@ -892,49 +874,73 @@
   </div>
 {/if}
 
-{#if group && !showMap}
+{#if group}
   <div class="filter-bar">
-    {#if items.length > 0}
-      <button class="btn secondary" onclick={toggleSelectMode}>
-        {selectMode ? 'Cancel' : 'Select'}
+    {#if !showMap}
+      {#if items.length > 0}
+        <button class="btn secondary" onclick={toggleSelectMode}>
+          {selectMode ? 'Cancel' : 'Select'}
+        </button>
+      {/if}
+      <button
+        class="btn secondary"
+        class:active={likedOnly}
+        onclick={() => {
+          likedOnly = !likedOnly;
+          void onFilterChange();
+        }}
+      >
+        ♥ Liked only
       </button>
     {/if}
-    <button
-      class="btn secondary"
-      class:active={likedOnly}
-      onclick={() => {
-        likedOnly = !likedOnly;
-        void onFilterChange();
-      }}
-    >
-      ♥ Liked only
-    </button>
     <div class="view-controls">
-      <div class="fit-toggle" role="group" aria-label="Image fit">
-        <button
-          class="fit-btn"
-          class:active={tileFit === 'square'}
-          onclick={() => setTileFit('square')}
-        >
-          Fit to square
-        </button>
-        <button
-          class="fit-btn"
-          class:active={tileFit === 'contain'}
-          onclick={() => setTileFit('contain')}
-        >
-          Contain
-        </button>
-      </div>
-      <div class="sort-select">
-        <span class="muted">Sort</span>
-        <Dropdown
-          options={SORT_OPTIONS}
-          bind:value={sort}
-          label="Sort"
-          onchange={() => void onFilterChange()}
-        />
-      </div>
+      {#if items.length > 0}
+        <div class="fit-toggle" role="group" aria-label="View">
+          <button
+            class="fit-btn"
+            class:active={!showMap}
+            aria-pressed={!showMap}
+            onclick={() => setView(false)}
+          >
+            Grid
+          </button>
+          <button
+            class="fit-btn"
+            class:active={showMap}
+            aria-pressed={showMap}
+            onclick={() => setView(true)}
+          >
+            Map
+          </button>
+        </div>
+      {/if}
+      {#if !showMap}
+        <div class="fit-toggle" role="group" aria-label="Image fit">
+          <button
+            class="fit-btn"
+            class:active={tileFit === 'square'}
+            onclick={() => setTileFit('square')}
+          >
+            Fit to square
+          </button>
+          <button
+            class="fit-btn"
+            class:active={tileFit === 'contain'}
+            onclick={() => setTileFit('contain')}
+          >
+            Contain
+          </button>
+        </div>
+        <div class="sort-select">
+          <span class="muted">Sort</span>
+          <Dropdown
+            options={SORT_OPTIONS}
+            bind:value={sort}
+            label="Sort"
+            onchange={() => void onFilterChange()}
+          />
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
