@@ -77,6 +77,8 @@ export const beginUploadBody = z.object({
   /** Optional GPS coordinates from EXIF, for the group/image map views. */
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  /** Whether to extract and keep camera/lens/exposure EXIF. Defaults to true. */
+  keepCameraExif: z.boolean().optional(),
 });
 export type BeginUploadBody = z.infer<typeof beginUploadBody>;
 

@@ -113,7 +113,8 @@ export async function processMedia(mediaId: string): Promise<void> {
         ? await processVideo(row, originalPath, workdir)
         : await processImageOrRaw(row, originalPath, workdir, keepMetadata);
 
-    const exif = row.kind === 'video' ? emptyExif() : await extractExif(originalPath);
+    const exif =
+      row.kind === 'video' || !row.keepCameraExif ? emptyExif() : await extractExif(originalPath);
 
     await db
       .update(media)

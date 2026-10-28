@@ -1,0 +1,1 @@
+ALTER TABLE `media` ADD `keep_camera_exif` boolean DEFAULT true NOT NULL;

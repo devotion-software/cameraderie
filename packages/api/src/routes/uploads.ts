@@ -80,6 +80,7 @@ export default async function uploadRoutes(app: FastifyInstance) {
         capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
+        keepCameraExif: body.keepCameraExif ?? true,
       });
 
       const response: BeginUploadResponse = {

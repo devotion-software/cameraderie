@@ -65,6 +65,26 @@
     localStorage.setItem(TILE_FIT_KEY, next);
   }
 
+  const KEEP_GPS_KEY = 'cameraderie:uploadKeepGps';
+  const KEEP_CAMERA_EXIF_KEY = 'cameraderie:uploadKeepCameraExif';
+  let showUploadOptions = $state(false);
+  let keepGps = $state(true);
+  let keepCameraExif = $state(true);
+  if (typeof localStorage !== 'undefined') {
+    const savedGps = localStorage.getItem(KEEP_GPS_KEY);
+    if (savedGps === 'true' || savedGps === 'false') keepGps = savedGps === 'true';
+    const savedCamera = localStorage.getItem(KEEP_CAMERA_EXIF_KEY);
+    if (savedCamera === 'true' || savedCamera === 'false') keepCameraExif = savedCamera === 'true';
+  }
+  function setKeepGps(next: boolean) {
+    keepGps = next;
+    localStorage.setItem(KEEP_GPS_KEY, String(next));
+  }
+  function setKeepCameraExif(next: boolean) {
+    keepCameraExif = next;
+    localStorage.setItem(KEEP_CAMERA_EXIF_KEY, String(next));
+  }
+
   const MEMBER_AVATAR_LIMIT = 5;
   const overflowing = $derived(members.length > MEMBER_AVATAR_LIMIT);
   const visibleMembers = $derived(
@@ -181,9 +201,14 @@
       // closure over the pre-proxy object never triggers a re-render.
       const idx = uploads.length - 1;
       try {
-        await uploadFile(groupId, file, (f) => {
-          uploads[idx].fraction = f;
-        });
+        await uploadFile(
+          groupId,
+          file,
+          (f) => {
+            uploads[idx].fraction = f;
+          },
+          { keepGps, keepCameraExif },
+        );
       } catch (err) {
         uploads[idx].error = err instanceof Error ? err.message : 'Upload failed';
       }
@@ -519,6 +544,7 @@
     closeContextMenu();
     showDownloadMenu = false;
     showDownloadAllMenu = false;
+    showUploadOptions = false;
   }}
   onkeydown={(e) => {
     onLightboxKeydown(e);
@@ -526,6 +552,7 @@
     closeContextMenu();
     showDownloadMenu = false;
     showDownloadAllMenu = false;
+    showUploadOptions = false;
   }}
 />
 
@@ -584,6 +611,42 @@
           {/if}
         </div>
       {/if}
+      <div class="download-wrap">
+        <button
+          class="btn secondary"
+          title="Choose what EXIF metadata to keep"
+          onclick={(e) => {
+            e.stopPropagation();
+            showUploadOptions = !showUploadOptions;
+          }}
+        >
+          EXIF ⚙
+        </button>
+        {#if showUploadOptions}
+          <div
+            class="download-menu"
+            onclick={(e) => e.stopPropagation()}
+            transition:scale={{ duration: 150, start: 0.96 }}
+          >
+            <label class="quality-row">
+              <span class="muted">Keep location (GPS)</span>
+              <input
+                type="checkbox"
+                checked={keepGps}
+                onchange={(e) => setKeepGps(e.currentTarget.checked)}
+              />
+            </label>
+            <label class="quality-row">
+              <span class="muted">Keep camera &amp; lens details</span>
+              <input
+                type="checkbox"
+                checked={keepCameraExif}
+                onchange={(e) => setKeepCameraExif(e.currentTarget.checked)}
+              />
+            </label>
+          </div>
+        {/if}
+      </div>
       <button class="btn" onclick={() => fileInput?.click()}>Upload</button>
       <input
         bind:this={fileInput}

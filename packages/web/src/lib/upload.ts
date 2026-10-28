@@ -31,6 +31,13 @@ export interface UploadHandle {
   mediaId: string;
 }
 
+export interface UploadOptions {
+  /** Keep GPS coordinates read from EXIF. Defaults to true. */
+  keepGps?: boolean;
+  /** Keep camera/lens/exposure EXIF (make, model, aperture, etc). Defaults to true. */
+  keepCameraExif?: boolean;
+}
+
 const MAX_ATTEMPTS = 3;
 
 /**
@@ -44,8 +51,14 @@ export async function uploadFile(
   groupId: string,
   file: File,
   onProgress?: (fraction: number) => void,
+  options?: UploadOptions,
 ): Promise<UploadHandle> {
-  const [checksumSha256, gps] = await Promise.all([sha256Hex(file), readGps(file)]);
+  const keepGps = options?.keepGps ?? true;
+  const keepCameraExif = options?.keepCameraExif ?? true;
+  const [checksumSha256, gps] = await Promise.all([
+    sha256Hex(file),
+    keepGps ? readGps(file) : Promise.resolve(null),
+  ]);
 
   const begin = await api.post<BeginUploadResponse>('/media/uploads', {
     groupId,
@@ -55,6 +68,7 @@ export async function uploadFile(
     checksumSha256,
     latitude: gps?.latitude,
     longitude: gps?.longitude,
+    keepCameraExif,
   });
 
   const partSize = begin.partSizeBytes;

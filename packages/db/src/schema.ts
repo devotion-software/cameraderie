@@ -247,6 +247,12 @@ export const media = mysqlTable(
     latitude: double('latitude'),
     longitude: double('longitude'),
     /**
+     * Whether the uploader chose to keep camera/lens/exposure EXIF. When
+     * false, the worker skips extraction entirely and the fields below stay
+     * null, regardless of what the original file actually contains.
+     */
+    keepCameraExif: boolean('keep_camera_exif').notNull().default(true),
+    /**
      * Richer EXIF, extracted server-side by the worker from the original file
      * (images/RAW only — videos don't carry these). All nullable: many photos
      * are missing some or all of this (screenshots, edited exports, scans).
