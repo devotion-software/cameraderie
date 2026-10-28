@@ -71,6 +71,7 @@ export interface Member {
   image: string | null;
   avatarUrl: string | null;
   photoCount: number;
+  mediaCount: number;
 }
 
 export interface Invite {

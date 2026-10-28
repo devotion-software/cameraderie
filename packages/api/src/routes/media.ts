@@ -27,7 +27,13 @@ export default async function mediaRoutes(app: FastifyInstance) {
   // Paginated feed for a group (members only). Cursor by createdAt (ISO string).
   app.get<{
     Params: { id: string };
-    Querystring: { limit?: string; before?: string; sort?: string; liked?: string };
+    Querystring: {
+      limit?: string;
+      before?: string;
+      sort?: string;
+      liked?: string;
+      uploaderIds?: string;
+    };
   }>('/groups/:id/media', async (req) => {
     const me = await requireUser(req);
     await requireMembership(req.params.id, me.id);
@@ -36,6 +42,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
     const before = req.query.before ? new Date(req.query.before) : null;
     const oldest = req.query.sort === 'oldest';
     const likedOnly = req.query.liked === 'true';
+    const uploaderIds = req.query.uploaderIds?.split(',').filter(Boolean) ?? [];
 
     // Quarantined items are never listed — they exist only as preserved
     // evidence (see the worker's content-safety path).
@@ -55,6 +62,10 @@ export default async function mediaRoutes(app: FastifyInstance) {
       conditions.push(inArray(media.id, likedIds));
     }
 
+    if (uploaderIds.length > 0) {
+      conditions.push(inArray(media.uploaderId, uploaderIds));
+    }
+
     const rows = await db
       .select()
       .from(media)
@@ -72,12 +83,13 @@ export default async function mediaRoutes(app: FastifyInstance) {
   // All geotagged media in a group, for the map view (members only). Not
   // paginated — a lightweight projection (no presigned URLs) so plotting a
   // few thousand pins stays cheap.
-  app.get<{ Params: { id: string }; Querystring: { liked?: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { liked?: string; uploaderIds?: string } }>(
     '/groups/:id/media/locations',
     async (req) => {
       const me = await requireUser(req);
       await requireMembership(req.params.id, me.id);
       const likedOnly = req.query.liked === 'true';
+      const uploaderIds = req.query.uploaderIds?.split(',').filter(Boolean) ?? [];
 
       const conditions = [
         eq(media.groupId, req.params.id),
@@ -94,6 +106,10 @@ export default async function mediaRoutes(app: FastifyInstance) {
         const likedIds = likedRows.map((r) => r.id);
         if (likedIds.length === 0) return { media: [] };
         conditions.push(inArray(media.id, likedIds));
+      }
+
+      if (uploaderIds.length > 0) {
+        conditions.push(inArray(media.uploaderId, uploaderIds));
       }
 
       const rows = await db

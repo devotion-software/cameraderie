@@ -191,7 +191,7 @@ export default async function groupsRoutes(app: FastifyInstance) {
       .from(memberships)
       .innerJoin(user, eq(user.id, memberships.userId))
       .where(eq(memberships.groupId, req.params.id));
-    const [avatars, counts] = await Promise.all([
+    const [avatars, counts, totalCounts] = await Promise.all([
       avatarUrlsFor(rows),
       db
         .select({ uploaderId: media.uploaderId, count: sql<number>`count(*)` })
@@ -204,13 +204,23 @@ export default async function groupsRoutes(app: FastifyInstance) {
           ),
         )
         .groupBy(media.uploaderId),
+      // Photos + videos combined, for the "filter by uploader" picker.
+      db
+        .select({ uploaderId: media.uploaderId, count: sql<number>`count(*)` })
+        .from(media)
+        .where(and(eq(media.groupId, req.params.id), ne(media.state, 'quarantined')))
+        .groupBy(media.uploaderId),
     ]);
     const photoCounts = Object.fromEntries(counts.map((c) => [c.uploaderId, Number(c.count)]));
+    const mediaCounts = Object.fromEntries(
+      totalCounts.map((c) => [c.uploaderId, Number(c.count)]),
+    );
     return {
       members: rows.map(({ avatarObjectKey, ...m }) => ({
         ...m,
         avatarUrl: avatars[m.userId] ?? null,
         photoCount: photoCounts[m.userId] ?? 0,
+        mediaCount: mediaCounts[m.userId] ?? 0,
       })),
     };
   });
