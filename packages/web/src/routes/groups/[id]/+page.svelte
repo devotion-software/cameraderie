@@ -1691,6 +1691,9 @@
     justify-content: center;
   }
   .contain-tiles .tile-surface {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: visible;
     background: none;
     backdrop-filter: none;
