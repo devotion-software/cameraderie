@@ -5,6 +5,7 @@ import { getDb } from '../db.js';
 import { newId } from '../ids.js';
 import { requireMembership, requireUser } from '../guards.js';
 import { notFound } from '../errors.js';
+import { avatarUrlsFor } from '../avatars.js';
 
 export default async function favouritesRoutes(app: FastifyInstance) {
   const db = getDb();
@@ -35,11 +36,21 @@ export default async function favouritesRoutes(app: FastifyInstance) {
     const me = await requireUser(req);
     await assertVisible(db, req.params.id, me.id);
     const rows = await db
-      .select({ userId: favourites.userId, name: user.name, image: user.image })
+      .select({
+        userId: favourites.userId,
+        name: user.name,
+        image: user.image,
+        avatarObjectKey: user.avatarObjectKey,
+      })
       .from(favourites)
       .innerJoin(user, eq(user.id, favourites.userId))
       .where(eq(favourites.mediaId, req.params.id));
-    return { count: rows.length, users: rows };
+    const avatars = await avatarUrlsFor(rows);
+    const users = rows.map(({ avatarObjectKey, ...u }) => ({
+      ...u,
+      avatarUrl: avatars[u.userId] ?? null,
+    }));
+    return { count: rows.length, users };
   });
 }
 

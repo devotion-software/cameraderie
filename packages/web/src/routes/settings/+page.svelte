@@ -3,12 +3,14 @@
   import { useSession, signOut, authClient } from '$lib/auth';
   import { api } from '$lib/api';
   import { API_URL } from '$lib/config';
-  import type { Usage } from '$lib/types';
+  import type { Profile, Usage } from '$lib/types';
   import StoragePanel from '$lib/components/StoragePanel.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import AvatarUpload from '$lib/components/AvatarUpload.svelte';
 
   const session = useSession();
   let usage = $state<Usage | null>(null);
+  let profile = $state<Profile | null>(null);
   let error = $state('');
   let deleting = $state(false);
   let exporting = $state(false);
@@ -24,6 +26,10 @@
       nameLoaded = true;
     }
   });
+
+  function setAvatarUrl(avatarUrl: string | null) {
+    if (profile) profile = { ...profile, avatarUrl };
+  }
 
   async function saveName(e: SubmitEvent) {
     e.preventDefault();
@@ -92,7 +98,12 @@
 
   async function load() {
     try {
-      usage = await api.get<Usage>('/me/usage');
+      const [u, p] = await Promise.all([
+        api.get<Usage>('/me/usage'),
+        api.get<{ user: Profile }>('/me'),
+      ]);
+      usage = u;
+      profile = p.user;
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load usage';
     }
@@ -161,6 +172,9 @@
 
 <section class="card">
   <h2>Profile</h2>
+  {#if profile}
+    <AvatarUpload name={profile.name} avatarUrl={profile.avatarUrl} onUpdated={setAvatarUrl} />
+  {/if}
   <form class="row" onsubmit={saveName}>
     <input class="input" bind:value={name} maxlength={255} placeholder="Your name" required />
     <button class="btn secondary" type="submit" disabled={savingName || !name.trim()}>

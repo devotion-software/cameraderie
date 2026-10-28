@@ -6,6 +6,7 @@ import {
   UploadPartCommand,
   ListPartsCommand,
   GetObjectCommand,
+  PutObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
@@ -183,6 +184,12 @@ export async function presignGet(
       ? `attachment; filename="${encodeURIComponent(opts.downloadName)}"`
       : undefined,
   });
+  return getSignedUrl(s3(), command, { expiresIn: ttl() });
+}
+
+/** Presign a single-shot PUT for a small object (e.g. an avatar image). */
+export async function presignPut(key: string, contentType: string): Promise<string> {
+  const command = new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType });
   return getSignedUrl(s3(), command, { expiresIn: ttl() });
 }
 

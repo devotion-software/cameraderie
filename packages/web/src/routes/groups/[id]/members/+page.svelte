@@ -5,6 +5,7 @@
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
   import type { Group, Member } from '$lib/types';
+  import Avatar from '$lib/components/Avatar.svelte';
 
   const session = useSession();
   const groupId = $derived(page.params.id);
@@ -65,7 +66,7 @@
   <div class="list">
     {#each members as m (m.userId)}
       <div class="card member">
-        <div class="avatar">{m.name.slice(0, 1).toUpperCase()}</div>
+        <Avatar name={m.name} src={m.avatarUrl} size={38} />
         <div class="who">
           <strong>{m.name}</strong>
           <span class="muted">{m.email}</span>
@@ -91,20 +92,6 @@
     align-items: center;
     gap: 14px;
     padding: 12px 16px;
-  }
-  .avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-    color: var(--accent-ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-family: var(--font-display);
-    flex: 0 0 auto;
-    box-shadow: 0 4px 14px -4px hsl(var(--shadow-color) / 0.5);
   }
   .who {
     display: flex;

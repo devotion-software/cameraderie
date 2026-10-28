@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `avatar_object_key` varchar(512);

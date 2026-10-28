@@ -3,9 +3,26 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { useSession, signOut } from '$lib/auth';
+  import { api } from '$lib/api';
+  import type { Profile } from '$lib/types';
+  import Avatar from '$lib/components/Avatar.svelte';
 
   let { children } = $props();
   const session = useSession();
+
+  let avatarUrl = $state<string | null>(null);
+  let avatarLoadedFor: string | null = null;
+
+  $effect(() => {
+    const id = $session.data?.user?.id;
+    if (id && avatarLoadedFor !== id) {
+      avatarLoadedFor = id;
+      api
+        .get<{ user: Profile }>('/me')
+        .then((res) => (avatarUrl = res.user.avatarUrl))
+        .catch(() => {});
+    }
+  });
 
   // 18+/Terms consent is captured right after sign-in (not during it, since
   // email OTP/Google/Apple/passkey can't carry that form field through to
@@ -65,6 +82,7 @@
           Settings
         </a>
       </nav>
+      <Avatar name={$session.data.user.name} src={avatarUrl} size={28} />
       <span class="muted username">{$session.data.user.name}</span>
       <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
     {:else}

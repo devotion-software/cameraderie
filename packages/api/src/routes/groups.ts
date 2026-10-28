@@ -5,6 +5,7 @@ import { createGroupBody, setGroupCoverBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
 import { presignGet } from '../r2.js';
+import { avatarUrlsFor } from '../avatars.js';
 import { requireMembership, requirePermission, requireUser } from '../guards.js';
 import { parse } from '../validate.js';
 import { badRequest, forbidden, notFound } from '../errors.js';
@@ -128,11 +129,18 @@ export default async function groupsRoutes(app: FastifyInstance) {
         name: user.name,
         email: user.email,
         image: user.image,
+        avatarObjectKey: user.avatarObjectKey,
       })
       .from(memberships)
       .innerJoin(user, eq(user.id, memberships.userId))
       .where(eq(memberships.groupId, req.params.id));
-    return { members: rows };
+    const avatars = await avatarUrlsFor(rows);
+    return {
+      members: rows.map(({ avatarObjectKey, ...m }) => ({
+        ...m,
+        avatarUrl: avatars[m.userId] ?? null,
+      })),
+    };
   });
 
   // Remove a member (owner only; cannot remove the owner).

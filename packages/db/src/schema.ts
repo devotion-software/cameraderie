@@ -33,6 +33,8 @@ export const user = mysqlTable('user', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: varchar('image', { length: 1024 }),
+  /** R2 key of a self-uploaded avatar image. Takes priority over `image` when set. */
+  avatarObjectKey: varchar('avatar_object_key', { length: 512 }),
   // --- custom fields ---
   /** Running total of this user's own originals, in bytes (quota metering). */
   usedBytes: bigint('used_bytes', { mode: 'number' }).notNull().default(0),
@@ -124,7 +126,10 @@ export const passkey = mysqlTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
     aaguid: varchar('aaguid', { length: 64 }),
   },
-  (t) => [index('passkey_user_idx').on(t.userId), index('passkey_credential_idx').on(t.credentialID)],
+  (t) => [
+    index('passkey_user_idx').on(t.userId),
+    index('passkey_credential_idx').on(t.credentialID),
+  ],
 );
 
 // ── Domain tables ────────────────────────────────────────────────────────────────

@@ -38,6 +38,16 @@ export interface Member {
   name: string;
   email: string;
   image: string | null;
+  avatarUrl: string | null;
+}
+
+export interface Profile {
+  id: string;
+  email: string;
+  name: string;
+  plan: string;
+  acceptedTermsAt: string | null;
+  avatarUrl: string | null;
 }
 
 export interface Usage {

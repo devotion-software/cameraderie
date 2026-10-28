@@ -156,6 +156,26 @@ export function derivativeKey(mediaId: string, kind: DerivativeKind, mediaKind: 
   return kind === 'thumbnail' ? thumbnailKey(mediaId) : previewKey(mediaId, mediaKind);
 }
 
+// ── Avatars ──────────────────────────────────────────────────────────────────
+
+/** Accepted content-types for a self-uploaded profile picture (client resizes before upload). */
+export const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export type AvatarMimeType = (typeof AVATAR_MIME_TYPES)[number];
+
+/** Largest avatar image we accept, in bytes — generous given the client resizes first. */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+const AVATAR_EXTENSIONS: Record<AvatarMimeType, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+/** Deterministic R2 key for a user's avatar — one per user, overwritten on re-upload. */
+export function avatarKey(userId: string, contentType: AvatarMimeType): string {
+  return `avatars/${userId}/avatar.${AVATAR_EXTENSIONS[contentType]}`;
+}
+
 /** Derivative output tuning. */
 export const THUMBNAIL_MAX_EDGE = 512;
 export const PREVIEW_MAX_EDGE = 2048;

@@ -1,11 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import { and, asc, eq, ne } from 'drizzle-orm';
 import { favourites, groups, media, memberships, subscriptions, user } from '@cameraderie/db';
-import { planFromEntitlement } from '@cameraderie/shared';
+import {
+  AVATAR_MAX_BYTES,
+  avatarKey,
+  beginAvatarUploadBody,
+  planFromEntitlement,
+} from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { requireUser } from '../guards.js';
 import { getUsage } from '../quota.js';
 import { purgeMedia } from '../media-ops.js';
+import { deleteObject, headObject, presignGet, presignPut } from '../r2.js';
+import { parse } from '../validate.js';
+import { badRequest } from '../errors.js';
 
 export default async function accountRoutes(app: FastifyInstance) {
   const db = getDb();
@@ -13,6 +21,14 @@ export default async function accountRoutes(app: FastifyInstance) {
   // Profile.
   app.get('/me', async (req) => {
     const me = await requireUser(req);
+    const [row] = await db
+      .select({ avatarObjectKey: user.avatarObjectKey, image: user.image })
+      .from(user)
+      .where(eq(user.id, me.id))
+      .limit(1);
+    const avatarUrl = row?.avatarObjectKey
+      ? await presignGet(row.avatarObjectKey)
+      : (row?.image ?? null);
     return {
       user: {
         id: me.id,
@@ -20,8 +36,58 @@ export default async function accountRoutes(app: FastifyInstance) {
         name: me.name,
         plan: me.plan,
         acceptedTermsAt: me.acceptedTermsAt,
+        avatarUrl,
       },
     };
+  });
+
+  // Begin a direct-to-R2 avatar upload: presign a single PUT to a key
+  // deterministic from the user id, so re-uploading overwrites the old image
+  // instead of leaving orphans.
+  app.post('/me/avatar/begin', async (req) => {
+    const me = await requireUser(req);
+    const body = parse(beginAvatarUploadBody, req.body);
+    const key = avatarKey(me.id, body.contentType);
+    const uploadUrl = await presignPut(key, body.contentType);
+    return { key, uploadUrl };
+  });
+
+  // Confirm the avatar PUT landed, then adopt it as the user's avatar. The
+  // key is recomputed server-side from the (trusted) session user id and the
+  // declared content-type — never taken from the client.
+  app.post('/me/avatar/complete', async (req) => {
+    const me = await requireUser(req);
+    const body = parse(beginAvatarUploadBody, req.body);
+    const key = avatarKey(me.id, body.contentType);
+    const head = await headObject(key);
+    if (!head.exists) throw badRequest('Avatar upload not found');
+    if ((head.sizeBytes ?? 0) > AVATAR_MAX_BYTES) {
+      await deleteObject(key).catch(() => {});
+      throw badRequest('Avatar image too large');
+    }
+    const [prev] = await db
+      .select({ avatarObjectKey: user.avatarObjectKey })
+      .from(user)
+      .where(eq(user.id, me.id))
+      .limit(1);
+    if (prev?.avatarObjectKey && prev.avatarObjectKey !== key) {
+      await deleteObject(prev.avatarObjectKey).catch(() => {});
+    }
+    await db.update(user).set({ avatarObjectKey: key }).where(eq(user.id, me.id));
+    return { avatarUrl: await presignGet(key) };
+  });
+
+  // Remove my avatar.
+  app.delete('/me/avatar', async (req, reply) => {
+    const me = await requireUser(req);
+    const [row] = await db
+      .select({ avatarObjectKey: user.avatarObjectKey })
+      .from(user)
+      .where(eq(user.id, me.id))
+      .limit(1);
+    if (row?.avatarObjectKey) await deleteObject(row.avatarObjectKey).catch(() => {});
+    await db.update(user).set({ avatarObjectKey: null }).where(eq(user.id, me.id));
+    reply.code(204);
   });
 
   // Record 18+/Terms+Privacy consent. Called once, right after first sign-in,
@@ -170,6 +236,16 @@ export async function deleteAccountData(
   const ownMedia = await db.select().from(media).where(eq(media.uploaderId, userId));
   for (const row of ownMedia) {
     await purgeMedia(row, onR2Error);
+  }
+
+  // 1b. Delete their avatar image, if any.
+  const [profileRow] = await db
+    .select({ avatarObjectKey: user.avatarObjectKey })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (profileRow?.avatarObjectKey) {
+    await deleteObject(profileRow.avatarObjectKey).catch((err) => onR2Error?.(err));
   }
 
   // 2. Hand off or dissolve groups this user owns.

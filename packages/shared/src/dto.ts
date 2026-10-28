@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GROUP_ROLES } from './media.js';
+import { AVATAR_MIME_TYPES, GROUP_ROLES } from './media.js';
 
 /**
  * Request/response contracts. The web client and the API both import these,
@@ -34,6 +34,22 @@ export const createInviteBody = z.object({
 export type CreateInviteBody = z.infer<typeof createInviteBody>;
 
 export const roleSchema = z.enum(GROUP_ROLES);
+
+// ── Avatar (single-shot, direct to R2) ─────────────────────────────────────────
+
+export const beginAvatarUploadBody = z.object({
+  contentType: z.enum(AVATAR_MIME_TYPES),
+});
+export type BeginAvatarUploadBody = z.infer<typeof beginAvatarUploadBody>;
+
+export interface BeginAvatarUploadResponse {
+  key: string;
+  uploadUrl: string;
+}
+
+export interface CompleteAvatarUploadResponse {
+  avatarUrl: string;
+}
 
 // ── Upload (three-step, direct to R2) ──────────────────────────────────────────
 
