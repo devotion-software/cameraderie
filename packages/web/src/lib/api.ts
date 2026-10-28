@@ -14,6 +14,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`${API_URL}${path}`, {
     method,
     credentials: 'include',
+    // Without an explicit directive, Safari's HTTP cache can serve a stale
+    // snapshot of a GET to the same URL (e.g. the processing-status poll in
+    // the group feed) instead of hitting the network — API responses are
+    // never safe to cache.
+    cache: 'no-store',
     headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

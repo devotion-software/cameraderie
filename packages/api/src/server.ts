@@ -62,6 +62,15 @@ export async function buildServer(): Promise<FastifyInstance> {
     timeWindow: '1 minute',
   });
 
+  // Every response here is either dynamic JSON or an auth redirect — none of
+  // it is safe to cache. Without this, Safari's HTTP cache has been seen
+  // serving a stale snapshot of a repeatedly-polled GET (e.g. media
+  // processing status) instead of hitting the network.
+  app.addHook('onSend', (_req, reply, payload, done) => {
+    reply.header('cache-control', 'no-store');
+    done(null, payload);
+  });
+
   // Consistent error shape.
   app.setErrorHandler((err: Error & { statusCode?: number }, req, reply) => {
     if (err instanceof AppError) {
