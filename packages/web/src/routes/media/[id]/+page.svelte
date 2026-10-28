@@ -21,6 +21,17 @@
   let downloadQuality = $state<DownloadQuality>('original');
   const qualityOptions = $derived(item?.kind === 'video' ? VIDEO_QUALITY_OPTIONS : QUALITY_OPTIONS);
 
+  // The preview/thumbnail URL can take a moment to actually download even once
+  // the derivative is marked 'ready' — track that separately so we can hold a
+  // spinner (and the aspect-ratio-reserved space below) until pixels arrive.
+  let mediaLoaded = $state(false);
+  // Matches the img/video's own `max-width: 100%; max-height: 70vh` sizing, so
+  // the reserved box is the same size the media will actually render at.
+  const stageRatio = $derived(
+    item?.width && item?.height ? item.width / item.height : null,
+  );
+  const stageWidth = $derived(stageRatio ? `min(100%, calc(70vh * ${stageRatio}))` : undefined);
+
   $effect(() => {
     if ($session.isPending) return;
     if (!$session.data?.user) {
@@ -32,6 +43,7 @@
 
   async function load() {
     loading = true;
+    mediaLoaded = false;
     try {
       const res = await api.get<{ media: MediaItem }>(`/media/${mediaId}`);
       item = res.media;
@@ -113,13 +125,32 @@
 {:else if item}
   <a href="/groups/{item.groupId}" class="back"><span class="arrow">←</span> Back to group</a>
 
-  <div class="stage card" class:fit={item.kind !== 'video'}>
+  <div
+    class="stage card"
+    class:fit={item.kind !== 'video'}
+    style:width={item.kind !== 'video' ? stageWidth : undefined}
+    style:aspect-ratio={item.kind !== 'video' && stageRatio ? stageRatio : undefined}
+  >
     {#if item.state === 'ready' && item.previewUrl}
+      {#if !mediaLoaded}
+        <div class="stage-loader"><span class="spinner"></span></div>
+      {/if}
       {#if item.kind === 'video'}
         <!-- svelte-ignore a11y_media_has_caption -->
-        <video src={item.previewUrl} controls playsinline></video>
+        <video
+          src={item.previewUrl}
+          controls
+          playsinline
+          class:hidden={!mediaLoaded}
+          onloadeddata={() => (mediaLoaded = true)}
+        ></video>
       {:else}
-        <img src={item.previewUrl} alt={item.filename} />
+        <img
+          src={item.previewUrl}
+          alt={item.filename}
+          class:hidden={!mediaLoaded}
+          onload={() => (mediaLoaded = true)}
+        />
       {/if}
     {:else if item.state === 'failed'}
       <div class="placeholder">Preview could not be generated. The original is still safe.</div>
@@ -202,6 +233,7 @@
 
 <style>
   .stage {
+    position: relative;
     padding: 0;
     overflow: hidden;
     display: flex;
@@ -232,6 +264,30 @@
   .stage img.blurry {
     filter: blur(8px);
     opacity: 0.7;
+  }
+  .stage img.hidden,
+  .stage video.hidden {
+    display: none;
+  }
+  .stage-loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .placeholder {
     color: var(--text-dim);
