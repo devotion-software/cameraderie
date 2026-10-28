@@ -13,6 +13,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { PresignedPart } from '@cameraderie/shared';
+import type { Readable } from 'node:stream';
 import { loadEnv } from './env.js';
 
 const MIN_PART_SIZE = 5 * 1024 * 1024; // R2/S3 multipart minimum (except last part)
@@ -185,6 +186,13 @@ export async function presignGet(
       : undefined,
   });
   return getSignedUrl(s3(), command, { expiresIn: ttl() });
+}
+
+/** Open a readable stream of an object's bytes (for server-side zipping). */
+export async function getObjectStream(key: string): Promise<Readable> {
+  const res = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+  if (!res.Body) throw new Error(`Object ${key} returned no body`);
+  return res.Body as Readable;
 }
 
 /** Presign a single-shot PUT for a small object (e.g. an avatar image). */

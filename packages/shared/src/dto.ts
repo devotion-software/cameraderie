@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AVATAR_MIME_TYPES, GROUP_ROLES } from './media.js';
+import { AVATAR_MIME_TYPES, DOWNLOAD_QUALITIES, GROUP_ROLES } from './media.js';
 
 /**
  * Request/response contracts. The web client and the API both import these,
@@ -143,6 +143,16 @@ export const reportMediaBody = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 export type ReportMediaBody = z.infer<typeof reportMediaBody>;
+
+// ── Media: bulk zip download ──────────────────────────────────────────────────
+
+export const downloadQualitySchema = z.enum(DOWNLOAD_QUALITIES);
+
+export const downloadZipBody = z.object({
+  mediaIds: z.array(z.string().trim().min(1)).min(1).max(100),
+  quality: downloadQualitySchema.default('original'),
+});
+export type DownloadZipBody = z.infer<typeof downloadZipBody>;
 
 export const resolveReportBody = z.object({
   /** 'actioned' removes the media; 'dismissed' keeps it. */

@@ -4,7 +4,9 @@
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
   import { formatBytes, formatDate, formatDuration } from '$lib/format';
+  import { downloadOne, QUALITY_OPTIONS, VIDEO_QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem } from '$lib/types';
+  import type { DownloadQuality } from '@cameraderie/shared';
 
   const session = useSession();
   const mediaId = $derived(page.params.id);
@@ -14,6 +16,9 @@
   let error = $state('');
   let loading = $state(true);
   let downloading = $state(false);
+  let showDownloadMenu = $state(false);
+  let downloadQuality = $state<DownloadQuality>('original');
+  const qualityOptions = $derived(item?.kind === 'video' ? VIDEO_QUALITY_OPTIONS : QUALITY_OPTIONS);
 
   $effect(() => {
     if ($session.isPending) return;
@@ -55,13 +60,10 @@
 
   async function download() {
     if (!item) return;
+    showDownloadMenu = false;
     downloading = true;
     try {
-      const res = await api.get<{ url: string }>(`/media/${item.id}/download`);
-      const a = document.createElement('a');
-      a.href = res.url;
-      a.download = item.filename;
-      a.click();
+      await downloadOne(item.id, item.filename, downloadQuality);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Download failed';
     } finally {
@@ -98,6 +100,11 @@
   }
 </script>
 
+<svelte:window
+  onclick={() => (showDownloadMenu = false)}
+  onkeydown={(e) => e.key === 'Escape' && (showDownloadMenu = false)}
+/>
+
 {#if error}<p class="error">{error}</p>{/if}
 
 {#if loading}
@@ -127,9 +134,31 @@
       {item.favourited ? '♥' : '♡'}
       {item.favouriteCount}
     </button>
-    <button class="btn" onclick={download} disabled={downloading}>
-      {downloading ? 'Preparing…' : 'Download original'}
-    </button>
+    <div class="download-wrap">
+      <button
+        class="btn"
+        onclick={(e) => {
+          e.stopPropagation();
+          showDownloadMenu = true;
+        }}
+        disabled={downloading}
+      >
+        {downloading ? 'Preparing…' : 'Download'}
+      </button>
+      {#if showDownloadMenu}
+        <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+          <label class="quality-row">
+            <span class="muted">Quality</span>
+            <select class="input" bind:value={downloadQuality}>
+              {#each qualityOptions as q (q.value)}
+                <option value={q.value}>{q.label}</option>
+              {/each}
+            </select>
+          </label>
+          <button class="context-item" onclick={download}>Download</button>
+        </div>
+      {/if}
+    </div>
     <span class="spacer"></span>
     {#if reported}
       <span class="muted">Reported ✓</span>
@@ -206,6 +235,53 @@
     gap: 10px;
     align-items: center;
     margin: 16px 0;
+  }
+  .download-wrap {
+    position: relative;
+  }
+  .download-menu {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: 100;
+    min-width: 220px;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 36px -14px hsl(var(--shadow-color) / 0.5);
+  }
+  .quality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .quality-row span {
+    font-size: 12px;
+  }
+  .quality-row select {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+  .context-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    border-radius: calc(var(--radius-sm) - 4px);
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .context-item:hover {
+    background: var(--surface-2);
   }
   .meta dl {
     display: grid;

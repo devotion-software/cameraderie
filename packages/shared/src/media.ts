@@ -182,3 +182,22 @@ export const PREVIEW_MAX_EDGE = 2048;
 /** Longest edge (px) of the video preview, and its target bitrate. */
 export const VIDEO_PREVIEW_MAX_EDGE = 1280;
 export const VIDEO_PREVIEW_CRF = 28;
+
+// ── Download quality ─────────────────────────────────────────────────────────
+//
+// "Original" always serves the untouched upload. The other tiers are resized
+// from the original (or, for RAW, from its already-decoded preview) on demand
+// at download time — there's no precomputed storage for them. Video has no
+// separate tiers: any non-original choice serves the single preview transcode.
+
+export const DOWNLOAD_QUALITIES = ['original', 'high', 'medium', 'low'] as const;
+export type DownloadQuality = (typeof DOWNLOAD_QUALITIES)[number];
+
+export const IMAGE_DOWNLOAD_QUALITY_SPECS: Record<
+  Exclude<DownloadQuality, 'original'>,
+  { maxEdge: number; quality: number }
+> = {
+  high: { maxEdge: 2560, quality: 85 },
+  medium: { maxEdge: 1600, quality: 75 },
+  low: { maxEdge: 1024, quality: 60 },
+};

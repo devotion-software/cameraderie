@@ -5,7 +5,9 @@
   import { api } from '$lib/api';
   import { uploadFile } from '$lib/upload';
   import { formatDuration } from '$lib/format';
+  import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem } from '$lib/types';
+  import type { DownloadQuality } from '@cameraderie/shared';
 
   const session = useSession();
   const groupId = $derived(page.params.id as string);
@@ -165,11 +167,162 @@
     closeContextMenu();
     if (mediaId) await setCover(mediaId);
   }
+
+  let selectMode = $state(false);
+  let selected = $state<Set<string>>(new Set());
+  let downloading = $state(false);
+  let showDownloadMenu = $state(false);
+  let showDownloadAllMenu = $state(false);
+  let downloadQuality = $state<DownloadQuality>('original');
+
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    selected = new Set();
+  }
+
+  function toggleSelected(mediaId: string, e?: MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const next = new Set(selected);
+    if (next.has(mediaId)) next.delete(mediaId);
+    else next.add(mediaId);
+    selected = next;
+  }
+
+  function onTileClick(mediaId: string, e: MouseEvent) {
+    if (!selectMode) return;
+    toggleSelected(mediaId, e);
+  }
+
+  function selectAll() {
+    selected = new Set(items.map((m) => m.id));
+  }
+
+  function clearSelection() {
+    selected = new Set();
+  }
+
+  function onDownloadClick(e: MouseEvent) {
+    e.stopPropagation();
+    showDownloadMenu = true;
+  }
+
+  async function downloadIndividually() {
+    if (downloading || selected.size === 0) return;
+    showDownloadMenu = false;
+    downloading = true;
+    try {
+      for (const id of selected) {
+        const m = items.find((i) => i.id === id);
+        if (!m) continue;
+        try {
+          await downloadOne(id, m.filename, downloadQuality);
+        } catch (err) {
+          error = err instanceof Error ? err.message : `Failed to download ${m.filename}`;
+        }
+        // Stagger so the browser doesn't block a burst of auto-downloads.
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    } finally {
+      downloading = false;
+    }
+  }
+
+  async function downloadAsZip() {
+    if (downloading || selected.size === 0) return;
+    showDownloadMenu = false;
+    downloading = true;
+    try {
+      await requestZip([...selected], downloadQuality, `${group?.name ?? 'photos'}.zip`);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to download zip';
+    } finally {
+      downloading = false;
+    }
+  }
+
+  // The zip endpoint caps how many files it will bundle in one request; a
+  // "download all" on a big album splits into multiple zips of this size.
+  const ZIP_CHUNK_SIZE = 100;
+
+  /** Page through the whole album (not just what's currently loaded). */
+  async function fetchAllMedia(): Promise<{ id: string; filename: string }[]> {
+    const all: { id: string; filename: string }[] = [];
+    let cursor: string | null = null;
+    let hasMore = true;
+    while (hasMore) {
+      const qs: string = cursor ? `?limit=100&before=${encodeURIComponent(cursor)}` : '?limit=100';
+      const res: { media: MediaItem[]; nextCursor: string | null } = await api.get(
+        `/groups/${groupId}/media${qs}`,
+      );
+      all.push(...res.media.map((m: MediaItem) => ({ id: m.id, filename: m.filename })));
+      cursor = res.nextCursor;
+      hasMore = cursor !== null;
+    }
+    return all;
+  }
+
+  function onDownloadAllClick(e: MouseEvent) {
+    e.stopPropagation();
+    showDownloadAllMenu = true;
+  }
+
+  async function downloadAllIndividually() {
+    if (downloading) return;
+    showDownloadAllMenu = false;
+    downloading = true;
+    try {
+      const all = await fetchAllMedia();
+      for (const m of all) {
+        try {
+          await downloadOne(m.id, m.filename, downloadQuality);
+        } catch (err) {
+          error = err instanceof Error ? err.message : `Failed to download ${m.filename}`;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to download album';
+    } finally {
+      downloading = false;
+    }
+  }
+
+  async function downloadAllAsZip() {
+    if (downloading) return;
+    showDownloadAllMenu = false;
+    downloading = true;
+    try {
+      const all = await fetchAllMedia();
+      const ids = all.map((m) => m.id);
+      const chunkCount = Math.ceil(ids.length / ZIP_CHUNK_SIZE);
+      for (let i = 0; i < chunkCount; i++) {
+        const chunk = ids.slice(i * ZIP_CHUNK_SIZE, (i + 1) * ZIP_CHUNK_SIZE);
+        const base = group?.name ?? 'photos';
+        const filename = chunkCount > 1 ? `${base} (${i + 1} of ${chunkCount}).zip` : `${base}.zip`;
+        await requestZip(chunk, downloadQuality, filename);
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to download album';
+    } finally {
+      downloading = false;
+    }
+  }
 </script>
 
 <svelte:window
-  onclick={closeContextMenu}
-  onkeydown={(e) => e.key === 'Escape' && closeContextMenu()}
+  onclick={() => {
+    closeContextMenu();
+    showDownloadMenu = false;
+    showDownloadAllMenu = false;
+  }}
+  onkeydown={(e) => {
+    if (e.key !== 'Escape') return;
+    closeContextMenu();
+    showDownloadMenu = false;
+    showDownloadAllMenu = false;
+  }}
 />
 
 {#if group}
@@ -184,6 +337,32 @@
       <a class="btn secondary" href="/groups/{groupId}/members">Members</a>
       {#if canInvite && !showInvite}
         <button class="btn secondary" onclick={() => (showInvite = true)}>Invite</button>
+      {/if}
+      {#if items.length > 0}
+        <button class="btn secondary" onclick={toggleSelectMode}>
+          {selectMode ? 'Cancel' : 'Select'}
+        </button>
+        <div class="download-wrap">
+          <button class="btn secondary" onclick={onDownloadAllClick} disabled={downloading}>
+            {downloading ? 'Downloading…' : 'Download all'}
+          </button>
+          {#if showDownloadAllMenu}
+            <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+              <label class="quality-row">
+                <span class="muted">Quality</span>
+                <select class="input" bind:value={downloadQuality}>
+                  {#each QUALITY_OPTIONS as q (q.value)}
+                    <option value={q.value}>{q.label}</option>
+                  {/each}
+                </select>
+              </label>
+              <button class="context-item" onclick={downloadAllIndividually}>
+                Download individually
+              </button>
+              <button class="context-item" onclick={downloadAllAsZip}>Download as a zip</button>
+            </div>
+          {/if}
+        </div>
       {/if}
       <button class="btn" onclick={() => fileInput?.click()}>Upload</button>
       <input
@@ -245,6 +424,40 @@
 
 {#if error}<p class="error">{error}</p>{/if}
 
+{#if selectMode}
+  <div class="card select-bar">
+    <span>{selected.size} selected</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" onclick={selectAll} disabled={selected.size === items.length}>
+      Select all
+    </button>
+    <button class="btn ghost" onclick={clearSelection} disabled={selected.size === 0}>
+      Clear
+    </button>
+    <div class="download-wrap">
+      <button class="btn" onclick={onDownloadClick} disabled={selected.size === 0 || downloading}>
+        {downloading ? 'Downloading…' : 'Download'}
+      </button>
+      {#if showDownloadMenu}
+        <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+          <label class="quality-row">
+            <span class="muted">Quality</span>
+            <select class="input" bind:value={downloadQuality}>
+              {#each QUALITY_OPTIONS as q (q.value)}
+                <option value={q.value}>{q.label}</option>
+              {/each}
+            </select>
+          </label>
+          <button class="context-item" onclick={downloadIndividually}>
+            Download individually ({selected.size} files)
+          </button>
+          <button class="context-item" onclick={downloadAsZip}> Download as a zip </button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if items.length === 0}
@@ -254,10 +467,22 @@
     {#each items as m (m.id)}
       <a
         class="tile"
+        class:selected={selected.has(m.id)}
         href="/media/{m.id}"
         title={m.filename}
         oncontextmenu={(e) => onTileContextMenu(m.id, e)}
+        onclick={(e) => onTileClick(m.id, e)}
       >
+        {#if selectMode}
+          <button
+            class="overlay check"
+            class:checked={selected.has(m.id)}
+            onclick={(e) => toggleSelected(m.id, e)}
+            title={selected.has(m.id) ? 'Deselect' : 'Select'}
+          >
+            {selected.has(m.id) ? '✓' : ''}
+          </button>
+        {/if}
         {#if m.thumbnailUrl}
           <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
         {:else if m.state === 'failed'}
@@ -386,6 +611,48 @@
     text-align: right;
     font-size: 12px;
   }
+  .select-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    /* Tiles below each get their own stacking context (backdrop-filter), so
+       without this the dropdown menu paints behind them despite z-index. */
+    z-index: 10;
+  }
+  .download-wrap {
+    position: relative;
+  }
+  .download-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 100;
+    min-width: 220px;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 36px -14px hsl(var(--shadow-color) / 0.5);
+  }
+  .quality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .quality-row span {
+    font-size: 12px;
+  }
+  .quality-row select {
+    padding: 4px 8px;
+    font-size: 13px;
+  }
   .tile {
     position: relative;
     aspect-ratio: 1;
@@ -400,6 +667,29 @@
       transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1),
       box-shadow 0.2s ease,
       border-color 0.2s ease;
+  }
+  .tile.selected {
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 2px var(--accent),
+      inset 0 1px 0 var(--glass-highlight);
+  }
+  .overlay.check {
+    left: 8px;
+    top: 8px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    z-index: 1;
+  }
+  .overlay.check.checked {
+    background: var(--accent);
+    border-color: var(--accent);
   }
   .tile:hover {
     transform: translateY(-4px) scale(1.02);
