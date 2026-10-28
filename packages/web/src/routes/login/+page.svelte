@@ -6,14 +6,17 @@
   const session = useSession();
   const redirectTo = $derived(page.url.searchParams.get('redirect') || '/groups');
 
-  let step: 'email' | 'otp' = $state('email');
+  let step: 'email' | 'otp' | 'passkey-prompt' = $state('email');
   let email = $state('');
   let otp = $state('');
   let error = $state('');
   let busy = $state(false);
+  // Suppresses the auto-redirect-on-session effect below while we're offering
+  // to set up a passkey right after an email-OTP sign-in.
+  let offeringPasskey = $state(false);
 
   $effect(() => {
-    if ($session.data?.user) goto(redirectTo, { replaceState: true });
+    if ($session.data?.user && !offeringPasskey) goto(redirectTo, { replaceState: true });
   });
 
   async function sendCode(e: SubmitEvent) {
@@ -43,13 +46,40 @@
       if (res.error) {
         error = res.error.message ?? 'Invalid or expired code';
       } else {
-        goto(redirectTo);
+        const existing = await authClient
+          .$fetch<{ id: string }[]>('/passkey/list-user-passkeys')
+          .catch(() => null);
+        if (existing && !existing.error && existing.data?.length === 0) {
+          offeringPasskey = true;
+          step = 'passkey-prompt';
+        } else {
+          goto(redirectTo);
+        }
       }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Something went wrong';
     } finally {
       busy = false;
     }
+  }
+
+  async function addPasskeyNow() {
+    busy = true;
+    error = '';
+    try {
+      await authClient.passkey.addPasskey();
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to add passkey';
+    } finally {
+      busy = false;
+      offeringPasskey = false;
+      goto(redirectTo);
+    }
+  }
+
+  function skipPasskey() {
+    offeringPasskey = false;
+    goto(redirectTo);
   }
 
   async function withSocial(provider: 'google' | 'apple') {
@@ -138,7 +168,7 @@
           {busy ? 'Please wait…' : 'Send sign-in code'}
         </button>
       </form>
-    {:else}
+    {:else if step === 'otp'}
       <form onsubmit={verifyCode}>
         <p class="muted small">
           We sent a code to <strong>{email}</strong>. It expires in 5 minutes.
@@ -171,6 +201,20 @@
           Use a different email
         </button>
       </form>
+    {:else if step === 'passkey-prompt'}
+      <div class="passkey-prompt">
+        <p class="muted small">
+          Add a passkey for faster, more secure sign-in next time &mdash; Face ID, Touch ID, or a
+          security key.
+        </p>
+        {#if error}<p class="error">{error}</p>{/if}
+        <button class="btn" type="button" disabled={busy} onclick={addPasskeyNow}>
+          {busy ? 'Follow your browser prompt…' : 'Add a passkey'}
+        </button>
+        <button class="btn ghost" type="button" disabled={busy} onclick={skipPasskey}>
+          Not now
+        </button>
+      </div>
     {/if}
   </div>
 </div>
@@ -215,7 +259,8 @@
     height: 1px;
     background: var(--border);
   }
-  form {
+  form,
+  .passkey-prompt {
     display: flex;
     flex-direction: column;
     gap: 14px;
