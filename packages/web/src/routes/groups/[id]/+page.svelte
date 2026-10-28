@@ -37,8 +37,9 @@
   let mapLocations = $state<MediaLocation[] | null>(null);
   let mapLoading = $state(false);
 
-  async function toggleMap() {
-    showMap = !showMap;
+  async function setView(wantMap: boolean) {
+    if (showMap === wantMap) return;
+    showMap = wantMap;
     if (showMap && mapLocations === null) {
       mapLoading = true;
       try {
@@ -670,9 +671,24 @@
         {/if}
       </a>
       {#if items.length > 0}
-        <button class="btn secondary" class:active={showMap} onclick={toggleMap}>
-          {showMap ? 'Grid' : 'Map'}
-        </button>
+        <div class="fit-toggle" role="group" aria-label="View">
+          <button
+            class="fit-btn"
+            class:active={!showMap}
+            aria-pressed={!showMap}
+            onclick={() => setView(false)}
+          >
+            Grid
+          </button>
+          <button
+            class="fit-btn"
+            class:active={showMap}
+            aria-pressed={showMap}
+            onclick={() => setView(true)}
+          >
+            Map
+          </button>
+        </div>
         <button class="btn secondary" onclick={toggleSelectMode}>
           {selectMode ? 'Cancel' : 'Select'}
         </button>
@@ -1089,10 +1105,6 @@
     justify-content: flex-end;
     gap: 10px;
     margin-top: 16px;
-  }
-  .actions .btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
   }
   .map-card {
     margin-bottom: 20px;
