@@ -93,7 +93,9 @@ dev-host: up build-libs ## Like `dev`, but binds the web server to the LAN so yo
 	@echo "Open http://$(LAN_IP):5173 on your phone (same Wi-Fi)"
 	@echo "Starting api + worker + web (Ctrl-C stops all)..."
 	@trap 'kill 0' INT TERM; \
-		WEB_URL=http://$(LAN_IP):5173 bun run dev:api & \
+		WEB_URL=http://$(LAN_IP):5173 \
+		R2_ENDPOINT=http://$(LAN_IP):3900 \
+		bun run dev:api & \
 		bun run dev:worker & \
 		PUBLIC_API_URL=/api-proxy bun run --filter='@cameraderie/web' dev -- --host & \
 		wait

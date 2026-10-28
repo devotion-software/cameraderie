@@ -183,7 +183,12 @@
     {#each groups as g (g.id)}
       <a class="card group" href="/groups/{g.id}">
         {#if g.coverThumbnailUrl}
-          <img class="cover" src={g.coverThumbnailUrl} alt="" />
+          <img
+            class="cover"
+            src={g.coverThumbnailUrl}
+            alt=""
+            onerror={() => (g.coverThumbnailUrl = null)}
+          />
         {:else}
           <div class="cover placeholder"></div>
         {/if}

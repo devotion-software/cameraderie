@@ -905,7 +905,14 @@
         <span class="muted">Cover photo</span>
         <div class="cover-row">
           {#if group.coverThumbnailUrl}
-            <img class="cover-thumb" src={group.coverThumbnailUrl} alt="" />
+            <img
+              class="cover-thumb"
+              src={group.coverThumbnailUrl}
+              alt=""
+              onerror={() => {
+                if (group) group.coverThumbnailUrl = null;
+              }}
+            />
             <button
               type="button"
               class="btn secondary"
@@ -1135,7 +1142,12 @@
           {/if}
           {#if m.thumbnailUrl}
             <div class="media">
-              <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
+              <img
+                src={m.thumbnailUrl}
+                alt={m.filename}
+                loading="lazy"
+                onerror={() => (m.thumbnailUrl = null)}
+              />
               {#if m.kind === 'video'}
                 <span class="overlay play">▶ {formatDuration(m.durationMs) ?? ''}</span>
               {:else if m.kind === 'raw'}

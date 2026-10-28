@@ -6,10 +6,22 @@
   }
   const { name, src = null, size = 38 }: Props = $props();
   const initial = $derived(name.slice(0, 1).toUpperCase());
+  let failed = $state(false);
+  $effect(() => {
+    src;
+    failed = false;
+  });
 </script>
 
-{#if src}
-  <img class="avatar" style:width="{size}px" style:height="{size}px" {src} alt={name} />
+{#if src && !failed}
+  <img
+    class="avatar"
+    style:width="{size}px"
+    style:height="{size}px"
+    {src}
+    alt={name}
+    onerror={() => (failed = true)}
+  />
 {:else}
   <div class="avatar initials" style:width="{size}px" style:height="{size}px">{initial}</div>
 {/if}

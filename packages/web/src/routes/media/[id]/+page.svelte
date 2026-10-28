@@ -57,6 +57,7 @@
   // the derivative is marked 'ready' — track that separately so we can hold a
   // spinner (and the aspect-ratio-reserved space below) until pixels arrive.
   let mediaLoaded = $state(false);
+  let mediaError = $state(false);
   // Matches the img/video's own `max-width: 100%; max-height: 70vh` sizing, so
   // the reserved box is the same size the media will actually render at.
   const stageRatio = $derived(
@@ -160,6 +161,7 @@
   async function load() {
     loading = true;
     mediaLoaded = false;
+    mediaError = false;
     try {
       const [res, me] = await Promise.all([
         api.get<{ media: MediaItem }>(`/media/${mediaId}`),
@@ -302,7 +304,7 @@
     style:width={item.kind !== 'video' ? stageWidth : undefined}
     style:aspect-ratio={item.kind !== 'video' && stageRatio ? stageRatio : undefined}
   >
-    {#if item.state === 'ready' && item.previewUrl}
+    {#if item.state === 'ready' && item.previewUrl && !mediaError}
       {#if !mediaLoaded}
         <div class="stage-loader"><span class="spinner"></span></div>
       {/if}
@@ -314,6 +316,7 @@
           playsinline
           class:hidden={!mediaLoaded}
           onloadeddata={() => (mediaLoaded = true)}
+          onerror={() => (mediaError = true)}
         ></video>
       {:else}
         <img
@@ -323,6 +326,7 @@
           class:hidden={!mediaLoaded}
           class:magnifying={magnifierOn}
           onload={() => (mediaLoaded = true)}
+          onerror={() => (mediaError = true)}
           onclick={toggleMagnifier}
           onmousemove={onImageMouseMove}
           onmouseleave={onImageMouseLeave}
@@ -331,6 +335,8 @@
           <div class="lens" style={lensStyle}></div>
         {/if}
       {/if}
+    {:else if mediaError}
+      <div class="placeholder">Couldn't load this media. Check your connection and try again.</div>
     {:else if item.state === 'failed'}
       <div class="placeholder">Preview could not be generated. The original is still safe.</div>
     {:else if item.thumbnailUrl}
