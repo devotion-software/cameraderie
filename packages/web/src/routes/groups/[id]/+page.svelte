@@ -931,7 +931,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 2px solid var(--surface-1);
+    border: 2px solid var(--surface-strong);
     margin-left: -8px;
   }
   .member-avatar:first-child {
@@ -1279,8 +1279,9 @@
     min-width: 190px;
     padding: 6px;
     border-radius: var(--radius-sm);
-    background: var(--surface-1);
+    background: var(--surface-strong);
     backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--border);
     box-shadow: 0 16px 36px -14px hsl(var(--shadow-color) / 0.5);
   }

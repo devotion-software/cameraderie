@@ -194,7 +194,7 @@
     padding: 6px;
     list-style: none;
     border-radius: var(--radius-sm);
-    background: var(--surface-1);
+    background: var(--surface-strong);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--border);
