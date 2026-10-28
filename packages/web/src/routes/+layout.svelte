@@ -168,7 +168,8 @@
   }
   .username {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
+    cursor: default;
   }
   @media (max-width: 680px) {
     .navlinks {
