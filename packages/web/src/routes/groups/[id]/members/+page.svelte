@@ -79,6 +79,17 @@
     }
   }
 
+  let copiedInviteId = $state('');
+
+  async function copyInviteLink(invite: Invite) {
+    const url = `${location.origin}/invite/${invite.code}`;
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    copiedInviteId = invite.id;
+    setTimeout(() => {
+      if (copiedInviteId === invite.id) copiedInviteId = '';
+    }, 1500);
+  }
+
   async function revokeInvite(inviteId: string) {
     const ok = await confirmDialog({
       title: 'Revoke invite',
@@ -169,6 +180,9 @@
             )}{i.expiresAt ? ` · expires ${formatDate(i.expiresAt)}` : ''}</span
           >
         </div>
+        <button class="btn secondary" onclick={() => copyInviteLink(i)}>
+          {copiedInviteId === i.id ? 'Copied!' : 'Copy link'}
+        </button>
         <button class="btn danger" onclick={() => revokeInvite(i.id)}>Revoke</button>
       </div>
     {/each}
