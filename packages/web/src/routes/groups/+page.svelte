@@ -124,12 +124,6 @@
   {/if}
 </div>
 
-{#if !canCreateGroups}
-  <p class="muted hint">
-    You don't have permission to create new groups yet — ask a site admin to grant it.
-  </p>
-{/if}
-
 {#if usage && showStorage}
   <div transition:slide={{ duration: 180 }}>
     <StoragePanel {usage} />
@@ -183,7 +177,7 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if groups.length === 0}
-  <p class="muted">No groups yet. Create one above to start sharing.</p>
+  <p class="muted">{canCreateGroups ? 'No groups yet. Create one above to start sharing.' : 'No groups yet.'}</p>
 {:else}
   <div class="group-list">
     {#each groups as g (g.id)}
@@ -204,10 +198,6 @@
 <style>
   .head {
     margin-bottom: 16px;
-  }
-  .hint {
-    margin: -8px 0 16px;
-    font-size: 13px;
   }
   .btn.secondary.active {
     border-color: var(--accent);
