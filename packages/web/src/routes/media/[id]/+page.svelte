@@ -10,6 +10,7 @@
   import Avatar from '$lib/components/Avatar.svelte';
   import { confirmDialog } from '$lib/confirm.svelte';
   import LeafletMap from '$lib/components/LeafletMap.svelte';
+  import Dropdown from '$lib/components/Dropdown.svelte';
 
   const session = useSession();
   const mediaId = $derived(page.params.id);
@@ -291,14 +292,10 @@
       </button>
       {#if showDownloadMenu}
         <div class="download-menu" onclick={(e) => e.stopPropagation()}>
-          <label class="quality-row">
+          <div class="quality-row">
             <span class="muted">Quality</span>
-            <select class="input" bind:value={downloadQuality}>
-              {#each qualityOptions as q (q.value)}
-                <option value={q.value}>{q.label}</option>
-              {/each}
-            </select>
-          </label>
+            <Dropdown options={qualityOptions} bind:value={downloadQuality} label="Quality" />
+          </div>
           <button class="context-item" onclick={download}>Download</button>
         </div>
       {/if}
@@ -493,10 +490,6 @@
   }
   .quality-row span {
     font-size: 12px;
-  }
-  .quality-row select {
-    padding: 4px 8px;
-    font-size: 13px;
   }
   .context-item {
     display: block;

@@ -10,6 +10,7 @@
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
   import LeafletMap from '$lib/components/LeafletMap.svelte';
+  import Dropdown from '$lib/components/Dropdown.svelte';
   import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
@@ -25,6 +26,10 @@
   let likedOnly = $state(false);
   let sort = $state<'newest' | 'oldest'>('newest');
   const feedQuery = $derived(`liked=${likedOnly}&sort=${sort}`);
+  const SORT_OPTIONS: { value: 'newest' | 'oldest'; label: string }[] = [
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+  ];
 
   let showMap = $state(false);
   let mapLocations = $state<MediaLocation[] | null>(null);
@@ -507,14 +512,10 @@
           {#if showDownloadAllMenu}
             <div class="menu-backdrop" onclick={() => (showDownloadAllMenu = false)}></div>
             <div class="download-menu" onclick={(e) => e.stopPropagation()}>
-              <label class="quality-row">
+              <div class="quality-row">
                 <span class="muted">Quality</span>
-                <select class="input" bind:value={downloadQuality}>
-                  {#each QUALITY_OPTIONS as q (q.value)}
-                    <option value={q.value}>{q.label}</option>
-                  {/each}
-                </select>
-              </label>
+                <Dropdown options={QUALITY_OPTIONS} bind:value={downloadQuality} label="Quality" />
+              </div>
               <button class="context-item" onclick={downloadAllIndividually}>
                 Download individually
               </button>
@@ -574,14 +575,10 @@
       {#if showDownloadMenu}
         <div class="menu-backdrop" onclick={() => (showDownloadMenu = false)}></div>
         <div class="download-menu" onclick={(e) => e.stopPropagation()}>
-          <label class="quality-row">
+          <div class="quality-row">
             <span class="muted">Quality</span>
-            <select class="input" bind:value={downloadQuality}>
-              {#each QUALITY_OPTIONS as q (q.value)}
-                <option value={q.value}>{q.label}</option>
-              {/each}
-            </select>
-          </label>
+            <Dropdown options={QUALITY_OPTIONS} bind:value={downloadQuality} label="Quality" />
+          </div>
           <button class="context-item" onclick={downloadIndividually}>
             Download individually ({selected.size} files)
           </button>
@@ -621,17 +618,15 @@
         Contain
       </button>
     </div>
-    <label class="sort-select">
+    <div class="sort-select">
       <span class="muted">Sort</span>
-      <select
-        class="input"
+      <Dropdown
+        options={SORT_OPTIONS}
         bind:value={sort}
+        label="Sort"
         onchange={() => void onFilterChange()}
-      >
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-      </select>
-    </label>
+      />
+    </div>
   </div>
 {/if}
 
@@ -905,10 +900,6 @@
     gap: 8px;
     font-size: 13px;
   }
-  .sort-select select {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
   .select-bar {
     display: flex;
     align-items: center;
@@ -954,10 +945,6 @@
   }
   .quality-row span {
     font-size: 12px;
-  }
-  .quality-row select {
-    padding: 4px 8px;
-    font-size: 13px;
   }
   .tile {
     position: relative;
