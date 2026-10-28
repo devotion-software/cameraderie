@@ -203,6 +203,11 @@
 <style>
   .head {
     margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .head .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .btn.secondary.active {
     border-color: var(--accent);
