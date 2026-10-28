@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade, scale, slide } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
@@ -772,6 +773,8 @@
         title={m.filename}
         oncontextmenu={(e) => onTileContextMenu(m.id, e)}
         onclick={(e) => onTileClick(m.id, i, e)}
+        in:fade={{ duration: 150 }}
+        animate:flip={{ duration: 200 }}
       >
         {#if selectMode}
           <button
