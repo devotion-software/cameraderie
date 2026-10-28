@@ -1,11 +1,13 @@
-import { betterAuth } from 'better-auth';
+import { betterAuth, type Auth as BetterAuthInstance } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { bearer } from 'better-auth/plugins';
+import { bearer, emailOTP } from 'better-auth/plugins';
+import { passkey } from '@better-auth/passkey';
 import { and, eq, gt, isNull, lt, or } from 'drizzle-orm';
-import { user, session, account, verification, invites } from '@cameraderie/db';
+import { user, session, account, verification, passkey as passkeyTable, invites } from '@cameraderie/db';
 import { getDb } from './db.js';
 import { loadEnv } from './env.js';
+import { sendOtpEmail } from './email.js';
 
 const env = loadEnv();
 
@@ -60,9 +62,32 @@ async function isEmailInvited(email: string): Promise<boolean> {
 }
 
 /**
- * Better Auth owns authentication. Web clients use session cookies; native
- * apps use the bearer plugin (send the session token as `Authorization:
- * Bearer <token>`) and store it in the Keychain / Keystore.
+ * Social providers are only enabled once their keys are configured, so the
+ * server boots fine in dev without them (the corresponding button in the web
+ * UI will just error until real credentials are set).
+ */
+const socialProviders: NonNullable<Parameters<typeof betterAuth>[0]['socialProviders']> = {};
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+  socialProviders.google = {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  };
+}
+if (env.APPLE_CLIENT_ID && env.APPLE_CLIENT_SECRET) {
+  socialProviders.apple = {
+    clientId: env.APPLE_CLIENT_ID,
+    clientSecret: env.APPLE_CLIENT_SECRET,
+    appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+  };
+}
+
+/**
+ * Better Auth owns authentication. No passwords: sign-in is email OTP,
+ * Google, Apple, or a passkey (passkeys are registered from Settings once
+ * signed in another way — WebAuthn credential registration needs an existing
+ * session to attach to). Web clients use session cookies; native apps use the
+ * bearer plugin (send the session token as `Authorization: Bearer <token>`)
+ * and store it in the Keychain / Keystore.
  *
  * `usedBytes` and `plan` are custom user fields the app maintains — declared
  * here with `input: false` so clients can never set them directly.
@@ -72,33 +97,22 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(getDb(), {
     provider: 'mysql',
-    schema: { user, session, account, verification },
+    schema: { user, session, account, verification, passkey: passkeyTable },
   }),
-  emailAndPassword: {
-    enabled: true,
-    // For a private app we don't gate on email verification yet.
-    requireEmailVerification: false,
-  },
+  socialProviders,
   trustedOrigins: [env.WEB_URL],
   databaseHooks: {
     user: {
       create: {
-        // Gate account creation. This runs for every sign-up path (email/password
-        // HTTP endpoint and the server-side `auth.api.signUpEmail` used by the
-        // seed script), so there is no way to register an account whose email
-        // isn't either on the static allowlist or already invited to a group.
+        // Gate account creation. This runs for every sign-up path (email OTP
+        // auto-signup, Google, Apple), so there is no way to register an
+        // account whose email isn't either on the static allowlist or already
+        // invited to a group. The 18+/Terms consent is captured separately,
+        // right after first sign-in (see `POST /me/accept-terms` and the
+        // `requireAcceptedTerms` gate in server.ts) — none of these sign-up
+        // flows can carry custom form fields through to account creation the
+        // way the old email/password sign-up body could.
         before: async (userData) => {
-          // Age + legal gate (always enforced, independent of the invite gate): the
-          // client must send `acceptedTermsAt`, set only when the user confirms
-          // they are 18 or over and accepts the Terms + Privacy Policy. This is a
-          // self-attestation record, not identity-grade age verification.
-          const accepted = (userData as { acceptedTermsAt?: unknown }).acceptedTermsAt;
-          if (!accepted) {
-            throw new APIError('BAD_REQUEST', {
-              message:
-                'You must confirm you are 18 or over and accept the Terms and Privacy Policy.',
-            });
-          }
           const email = (userData.email ?? '').toLowerCase();
           if (!(await isEmailInvited(email))) {
             throw new APIError('FORBIDDEN', {
@@ -116,9 +130,9 @@ export const auth = betterAuth({
       role: { type: 'string', required: false, input: false, defaultValue: 'user' },
       canCreateGroups: { type: 'boolean', required: false, input: false, defaultValue: false },
       canInviteMembers: { type: 'boolean', required: false, input: false, defaultValue: false },
-      // Accepted from the sign-up body (see the create.before gate). The client
-      // sends the current timestamp only once the 18+/Terms checkboxes are ticked.
-      acceptedTermsAt: { type: 'date', required: false, input: true },
+      // Set once, via POST /me/accept-terms, right after the user's first
+      // sign-in. Never accepted as sign-up/sign-in input.
+      acceptedTermsAt: { type: 'date', required: false, input: false },
     },
   },
   advanced: {
@@ -128,7 +142,24 @@ export const auth = betterAuth({
     defaultCookieAttributes:
       env.NODE_ENV === 'production' ? { sameSite: 'none', secure: true } : undefined,
   },
-  plugins: [bearer()],
-});
+  plugins: [
+    bearer(),
+    emailOTP({
+      otpLength: 6,
+      expiresIn: 300,
+      sendVerificationOTP: async ({ email, otp }) => {
+        await sendOtpEmail(email, otp);
+      },
+    }),
+    passkey({
+      rpID: new URL(env.WEB_URL).hostname,
+      rpName: 'Cameraderie',
+    }),
+  ],
+  // The precise inferred type here pulls in better-auth's internal zod v4 and
+  // @simplewebauthn/server types in a way tsc can't emit a portable .d.ts for
+  // (TS2742). We only ever call the plugin-agnostic `auth.api.getSession` /
+  // `auth.handler` outside this file, so widen to the base `Auth` type.
+}) as unknown as BetterAuthInstance;
 
 export type Auth = typeof auth;

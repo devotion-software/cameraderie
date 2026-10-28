@@ -1,18 +1,19 @@
 /**
- * Development seed. Creates a demo user (via Better Auth, so the password is
- * hashed correctly and the account can actually log in) and a demo group with
- * the user as owner. Idempotent: safe to run repeatedly.
+ * Development seed. Creates a demo user and a demo group with the user as
+ * owner. Idempotent: safe to run repeatedly.
+ *
+ * There's no password to set up front any more — sign in as the demo user via
+ * email OTP at /login. With `RESEND_API_KEY` unset (the dev default), the
+ * code is logged to the API console instead of emailed (see email.ts).
  *
  * Run with `bun run db:seed` (or `make seed`). Never run against production.
  */
-import { and, eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { groups, memberships, user } from '@cameraderie/db';
-import { auth } from './auth.js';
 import { getDb, closeDb } from './db.js';
 import { newId } from './ids.js';
 
 const DEMO_EMAIL = 'demo@cameraderie.local';
-const DEMO_PASSWORD = 'password123';
 const DEMO_NAME = 'Demo User';
 const DEMO_GROUP = 'Demo Group';
 
@@ -22,26 +23,23 @@ async function main() {
   }
   const db = getDb();
 
-  // Create the demo user through Better Auth so the password hash matches the
-  // login path. If it already exists, sign-up throws — fall back to a lookup.
   let userId: string;
-  try {
-    const res = await auth.api.signUpEmail({
-      body: {
-        email: DEMO_EMAIL,
-        password: DEMO_PASSWORD,
-        name: DEMO_NAME,
-        // Demo account attests to the 18+/Terms gate (see auth.ts create.before).
-        acceptedTermsAt: new Date(),
-      },
-    });
-    userId = res.user.id;
-    console.log(`Created demo user ${DEMO_EMAIL}`);
-  } catch {
-    const [existing] = await db.select().from(user).where(eq(user.email, DEMO_EMAIL)).limit(1);
-    if (!existing) throw new Error(`Sign-up failed and no existing ${DEMO_EMAIL} found`);
+  const [existing] = await db.select().from(user).where(eq(user.email, DEMO_EMAIL)).limit(1);
+  if (existing) {
     userId = existing.id;
     console.log(`Demo user ${DEMO_EMAIL} already exists`);
+  } else {
+    userId = newId();
+    await db.insert(user).values({
+      id: userId,
+      email: DEMO_EMAIL,
+      name: DEMO_NAME,
+      emailVerified: true,
+      // Demo account pre-attests to the 18+/Terms gate so it isn't stopped by
+      // the post-sign-in consent interstitial (see server.ts requireAcceptedTerms).
+      acceptedTermsAt: new Date(),
+    });
+    console.log(`Created demo user ${DEMO_EMAIL}`);
   }
 
   // The demo account is a local dev convenience: make it a site admin with
@@ -70,9 +68,7 @@ async function main() {
     console.log(`Created demo group "${DEMO_GROUP}"`);
   }
 
-  console.log(
-    `\nSeed complete. Log in with:\n  email:    ${DEMO_EMAIL}\n  password: ${DEMO_PASSWORD}`,
-  );
+  console.log(`\nSeed complete. Sign in at /login with email: ${DEMO_EMAIL}`);
 }
 
 main()

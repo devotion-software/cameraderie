@@ -16,10 +16,11 @@ import {
 /**
  * Single Drizzle schema for the whole system.
  *
- * The first four tables (user/session/account/verification) are owned by
- * Better Auth — the JS property keys MUST match Better Auth's field names
- * (camelCase) so its drizzle adapter can map them; the DB column names are
- * snake_case. `user` carries two custom fields (usedBytes, plan).
+ * The first five tables (user/session/account/verification/passkey) are owned
+ * by Better Auth (passkey by the `@better-auth/passkey` plugin) — the JS
+ * property keys MUST match Better Auth's field names (camelCase) so its
+ * drizzle adapter can map them; the DB column names are snake_case. `user`
+ * carries several custom fields (usedBytes, plan, role, permissions, consent).
  *
  * The rest are our domain tables. `media` is the hub.
  */
@@ -103,6 +104,27 @@ export const verification = mysqlTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
   },
   (t) => [index('verification_identifier_idx').on(t.identifier)],
+);
+
+/** Owned by the `@better-auth/passkey` plugin — WebAuthn credentials for passkey sign-in. */
+export const passkey = mysqlTable(
+  'passkey',
+  {
+    id: varchar('id', { length: 64 }).primaryKey(),
+    name: varchar('name', { length: 255 }),
+    publicKey: varchar('public_key', { length: 2048 }).notNull(),
+    userId: varchar('user_id', { length: 64 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    credentialID: varchar('credential_id', { length: 512 }).notNull(),
+    counter: int('counter').notNull(),
+    deviceType: varchar('device_type', { length: 32 }).notNull(),
+    backedUp: boolean('backed_up').notNull(),
+    transports: varchar('transports', { length: 255 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    aaguid: varchar('aaguid', { length: 64 }),
+  },
+  (t) => [index('passkey_user_idx').on(t.userId), index('passkey_credential_idx').on(t.credentialID)],
 );
 
 // ── Domain tables ────────────────────────────────────────────────────────────────
@@ -362,6 +384,7 @@ export const schema = {
   session,
   account,
   verification,
+  passkey,
   groups,
   memberships,
   invites,

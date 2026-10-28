@@ -28,6 +28,32 @@ building the native apps. Work top-to-bottom. Items are marked:
    separated if more than one) so you have an account to log in with before
    anyone has invited you.
 5. **Local storage (dev):** uncomment the Garage `R2_*` block in `.env.example`
+
+## 1b. Auth methods — [required for OTP email, optional for Google/Apple]
+
+No passwords: sign-in is email OTP, Google, Apple, or a passkey
+(`packages/api/src/auth.ts`). Each is independently optional — the server
+boots fine without any of them configured, and the corresponding web UI
+button just errors until it is.
+
+- **Email OTP** — in production, set `RESEND_API_KEY`
+  (https://resend.com/api-keys) and `EMAIL_FROM`. In local dev, use Mailpit
+  instead: it's started by `make up` (part of `INFRA` in the Makefile); set
+  `SMTP_HOST=localhost` / `SMTP_PORT=1025` and OTP emails land at
+  http://localhost:8025 instead of a real inbox. With neither Resend nor SMTP
+  configured, the OTP code is logged to the API console instead — fine to
+  unblock yourself, not a substitute for actually testing email delivery.
+- **Google** — create an OAuth client at console.cloud.google.com (APIs &
+  Services → Credentials), redirect URI `{API_URL}/api/auth/callback/google`.
+  Set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+- **Apple** — create a Services ID + key at developer.apple.com (requires a
+  paid Apple Developer account), redirect URI
+  `{API_URL}/api/auth/callback/apple`. Set `APPLE_CLIENT_ID`,
+  `APPLE_APP_BUNDLE_IDENTIFIER`, and `APPLE_CLIENT_SECRET` (a signed JWT you
+  generate from your Apple private key — see Better Auth's Apple provider
+  docs for the exact steps).
+- **Passkeys** — no setup needed; registered from Settings once signed in
+  another way (a WebAuthn credential has to attach to an existing session).
    (`R2_ENDPOINT=http://localhost:3900`, access key `GKdeadbeefdeadbeefdeadbeef` /
    secret `deadbeef...` — dev-only placeholder creds, see the file) so dev runs
    against the local Garage container instead of real R2 — see section 2.
@@ -87,15 +113,19 @@ make install          # bun install
 
 make up               # start MariaDB + Redis + Garage (local S3), bucket auto-created
 make migrate          # apply the DB schema (safe to re-run)
-make seed             # optional: a demo login (demo@cameraderie.local / password123)
+make seed             # optional: a demo login (demo@cameraderie.local)
 
 make dev              # build the shared libs, then run api + worker + web (Ctrl-C stops all)
 ```
 
-Open http://localhost:5173 and sign in with the seeded account
-(`demo@cameraderie.local` / `password123` — it's also a site admin with full
+There are no passwords — sign-in is email OTP, Google, Apple, or a passkey
+(see section 1b). Open http://localhost:5173 and sign in with the seeded
+account (`demo@cameraderie.local` — it's also a site admin with full
 permissions, see "Keeping sign-up invite-only" below for how to sign up any
-other account), create a group, and upload a photo. If uploads fail against
+other account). With `SMTP_HOST` set (see section 1b), the sign-in code shows
+up at http://localhost:8025 (Mailpit); otherwise it's printed to the API's
+console — copy it from there. Then create a group and upload a photo. If
+uploads fail against
 **real R2**, re-check the CORS rule (step 2.4); against local Garage it's
 configured for you.
 
@@ -195,8 +225,9 @@ out-of-band once preserved.
 
 ### Keeping sign-up invite-only — [already on by default]
 
-Account creation (`POST /api/auth/sign-up/email`) only succeeds for an email
-that's either on the static `ALLOWED_SIGNUP_EMAILS` allowlist, or has been
+Account creation (email OTP's auto sign-up, or first Google/Apple sign-in)
+only succeeds for an email that's either on the static `ALLOWED_SIGNUP_EMAILS`
+allowlist, or has been
 sent a group invite with that email attached (create one from a group page,
 or `POST /groups/:id/invites` with `{"email": "..."}`). There is no open
 registration, in dev or prod.
@@ -212,11 +243,11 @@ admins.
 
 ---
 
-## 9. Email verification & password reset — [optional]
+## 9. Email verification — [n/a]
 
-Better Auth supports both but they're off (`requireEmailVerification: false` in
-`packages/api/src/auth.ts`). To enable, configure an email sender in the Better
-Auth options and flip the flag.
+There's nothing to configure here any more: there's no password to reset, and
+email OTP sign-in inherently proves control of the inbox, so Better Auth marks
+`emailVerified: true` on every OTP-created account automatically.
 
 ---
 

@@ -7,6 +7,22 @@
   let { children } = $props();
   const session = useSession();
 
+  // 18+/Terms consent is captured right after sign-in (not during it, since
+  // email OTP/Google/Apple/passkey can't carry that form field through to
+  // account creation) — send anyone missing it to the consent interstitial.
+  // The server enforces this too (every /api route 403s until it's set).
+  $effect(() => {
+    const user = $session.data?.user as { acceptedTermsAt?: unknown } | undefined;
+    if (
+      user &&
+      !user.acceptedTermsAt &&
+      !page.url.pathname.startsWith('/consent') &&
+      !page.url.pathname.startsWith('/legal')
+    ) {
+      goto('/consent');
+    }
+  });
+
   async function handleSignOut() {
     await signOut();
     goto('/login');

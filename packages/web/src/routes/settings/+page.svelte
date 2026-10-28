@@ -45,6 +45,35 @@
     }
   }
 
+  const passkeys = authClient.useListPasskeys();
+  let addingPasskey = $state(false);
+
+  async function addPasskey() {
+    addingPasskey = true;
+    error = '';
+    try {
+      const res = await authClient.passkey.addPasskey();
+      if (res?.error) throw new Error(res.error.message ?? 'Failed to add passkey');
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to add passkey';
+    } finally {
+      addingPasskey = false;
+    }
+  }
+
+  async function removePasskey(id: string) {
+    error = '';
+    try {
+      const res = await authClient.$fetch('/passkey/delete-passkey', {
+        method: 'POST',
+        body: { id },
+      });
+      if (res.error) throw new Error(res.error.message ?? 'Failed to remove passkey');
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to remove passkey';
+    }
+  }
+
   // Plan tiers mirror @cameraderie/shared PLANS.
   const PLANS = [
     { id: 'free', label: 'Free', quota: '5 GB' },
@@ -138,6 +167,24 @@
       {savingName ? 'Saving…' : nameSaved ? 'Saved ✓' : 'Save'}
     </button>
   </form>
+</section>
+
+<section class="card">
+  <h2>Sign-in methods</h2>
+  <p class="muted">Passkeys let you sign in with Face ID, Touch ID, or a security key.</p>
+  {#if $passkeys.data?.length}
+    <ul class="passkey-list">
+      {#each $passkeys.data as pk (pk.id)}
+        <li>
+          <span>{pk.name || 'Passkey'}</span>
+          <button class="btn ghost" onclick={() => removePasskey(pk.id)}>Remove</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <button class="btn secondary" onclick={addPasskey} disabled={addingPasskey}>
+    {addingPasskey ? 'Follow your browser prompt…' : 'Add a passkey'}
+  </button>
 </section>
 
 <section class="card">
@@ -237,6 +284,24 @@
   .small {
     font-size: 13px;
     margin-bottom: 0;
+  }
+  .passkey-list {
+    list-style: none;
+    margin: 12px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .passkey-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 0.92rem;
   }
   .danger-zone {
     border-color: color-mix(in srgb, var(--danger) 40%, transparent);

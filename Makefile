@@ -11,7 +11,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 # Infra-only services (not the app containers, which use real R2 in prod).
-INFRA   := mariadb redis garage garage-init
+INFRA   := mariadb redis garage garage-init mailpit
 
 .PHONY: help install up infra stop down clean logs console \
         dev build build-libs typecheck test lint format \
@@ -32,9 +32,10 @@ install: ## Install all workspace dependencies (bun)
 
 ##@ Local infrastructure (Docker)
 
-up: ## Start MariaDB + Redis + Garage in the background
+up: ## Start MariaDB + Redis + Garage + Mailpit in the background
 	$(COMPOSE) up -d $(INFRA)
 	@echo "Infra up. Garage S3 API: http://localhost:3900 (GKdeadbeefdeadbeefdeadbeef / deadbeef...)"
+	@echo "Mailpit (email OTP inbox): http://localhost:8025"
 
 infra: up ## Alias for `up`
 

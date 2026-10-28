@@ -88,6 +88,18 @@ services:
           --bucket "${R2_BUCKET:-cameraderie}" --cors-configuration file:///tmp/cors.json
         echo 'garage bucket CORS set'
 
+  # ── Local SMTP (dev only) ────────────────────────────────────────────
+  # Stand-in for Resend when developing. Email OTP sign-in codes get sent
+  # here via SMTP (SMTP_HOST=mailpit) instead of a real inbox — view them at
+  # http://localhost:8025. NOTE: production still uses real Resend; this is
+  # dev scaffolding, same role as `garage` is for R2.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # web UI
+
   api:
     build:
       context: .
@@ -106,6 +118,16 @@ services:
       DATABASE_URL: mysql://${MARIADB_USER:-cameraderie}:${MARIADB_PASSWORD:-cameraderie}@mariadb:3306/${MARIADB_DATABASE:-cameraderie}
       REDIS_URL: redis://redis:6379
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      ALLOWED_SIGNUP_EMAILS: ${ALLOWED_SIGNUP_EMAILS:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_CLIENT_SECRET: ${APPLE_CLIENT_SECRET:-}
+      APPLE_APP_BUNDLE_IDENTIFIER: ${APPLE_APP_BUNDLE_IDENTIFIER:-}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}

@@ -13,7 +13,27 @@ export default async function accountRoutes(app: FastifyInstance) {
   // Profile.
   app.get('/me', async (req) => {
     const me = await requireUser(req);
-    return { user: { id: me.id, email: me.email, name: me.name, plan: me.plan } };
+    return {
+      user: {
+        id: me.id,
+        email: me.email,
+        name: me.name,
+        plan: me.plan,
+        acceptedTermsAt: me.acceptedTermsAt,
+      },
+    };
+  });
+
+  // Record 18+/Terms+Privacy consent. Called once, right after first sign-in,
+  // from the web app's consent interstitial (see requireAcceptedTerms in
+  // server.ts, which blocks every other route until this is set). This is a
+  // self-attestation record, not identity-grade age verification.
+  app.post('/me/accept-terms', async (req) => {
+    const me = await requireUser(req);
+    if (!me.acceptedTermsAt) {
+      await db.update(user).set({ acceptedTermsAt: new Date() }).where(eq(user.id, me.id));
+    }
+    return { acceptedTermsAt: true };
   });
 
   // Bytes used vs quota, and the read-only-over-quota flag.

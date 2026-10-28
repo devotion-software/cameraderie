@@ -10,8 +10,9 @@
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/passkey": "^1.7.14",
     "@cameraderie/shared": "workspace:*",
-    "better-auth": "^1.1.14"
+    "better-auth": "^1.7.7"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.12",

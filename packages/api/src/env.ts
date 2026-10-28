@@ -17,6 +17,21 @@ const envSchema = z.object({
   // open/public registration.
   ALLOWED_SIGNUP_EMAILS: z.string().optional(),
 
+  // --- Auth methods (all optional; a provider is only enabled once its keys
+  // are set — see auth.ts) ---
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Cameraderie <no-reply@cameraderie.app>'),
+  // Local-dev email OTP delivery via Mailpit (see docker-compose.yml) instead
+  // of Resend — set SMTP_HOST to enable (see email.ts). Takes priority over
+  // RESEND_API_KEY when both happen to be set.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_CLIENT_SECRET: z.string().optional(),
+  APPLE_APP_BUNDLE_IDENTIFIER: z.string().optional(),
+
   R2_ACCOUNT_ID: z.string().min(1),
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),

@@ -15,6 +15,7 @@ export interface SessionUser {
   role: string;
   canCreateGroups: boolean;
   canInviteMembers: boolean;
+  acceptedTermsAt: Date | null;
 }
 
 /** Convert Fastify's incoming headers into a web `Headers` for Better Auth. */
@@ -42,6 +43,7 @@ export async function requireUser(req: FastifyRequest): Promise<SessionUser> {
     role: typeof u.role === 'string' ? u.role : 'user',
     canCreateGroups: u.canCreateGroups === true,
     canInviteMembers: u.canInviteMembers === true,
+    acceptedTermsAt: u.acceptedTermsAt instanceof Date ? u.acceptedTermsAt : null,
   };
 }
 

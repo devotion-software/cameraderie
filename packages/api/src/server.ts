@@ -105,6 +105,29 @@ export async function buildServer(): Promise<FastifyInstance> {
     },
   });
 
+  // Sign-up no longer collects 18+/Terms+Privacy consent up front (email OTP
+  // and social sign-in can't carry that form field through to account
+  // creation), so it's captured right after first sign-in instead: every
+  // domain route is blocked with 403 until `POST /me/accept-terms` is called.
+  // The Stripe/RevenueCat webhooks are unauthenticated service-to-service
+  // calls, not user sessions, so they're exempt alongside auth/health.
+  app.addHook('onRequest', async (req, reply) => {
+    if (req.url.startsWith('/api/auth/')) return;
+    if (req.url === '/health') return;
+    if (req.url === '/billing/webhook') return;
+    if (req.method === 'GET' && req.url === '/me') return;
+    if (req.url === '/me/accept-terms') return;
+    const result = await auth.api.getSession({ headers: toWebHeaders(req) }).catch(() => null);
+    const acceptedTermsAt = (result?.user as { acceptedTermsAt?: unknown } | undefined)
+      ?.acceptedTermsAt;
+    if (result?.user && !acceptedTermsAt) {
+      reply.code(403).send({
+        error: 'terms_required',
+        message: 'Please confirm you are 18+ and accept the Terms and Privacy Policy to continue.',
+      });
+    }
+  });
+
   // ── Domain routes ──────────────────────────────────────────────────────
   await app.register(groupsRoutes);
   await app.register(invitesRoutes);
