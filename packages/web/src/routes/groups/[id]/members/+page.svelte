@@ -285,12 +285,21 @@
   .member {
     display: flex;
     align-items: center;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 8px 14px;
     padding: 12px 16px;
   }
   .who {
     display: flex;
     flex-direction: column;
+    flex: 1 1 160px;
+    min-width: 0;
+  }
+  .who strong,
+  .who .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .who .muted {
     font-size: 13px;
@@ -301,5 +310,10 @@
   }
   .member :global(.badge) {
     margin-left: auto;
+  }
+  @media (max-width: 480px) {
+    .member :global(.badge) {
+      margin-left: 0;
+    }
   }
 </style>
