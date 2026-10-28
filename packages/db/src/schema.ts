@@ -246,6 +246,24 @@ export const media = mysqlTable(
     /** GPS coordinates read from EXIF client-side at upload time, if present. */
     latitude: double('latitude'),
     longitude: double('longitude'),
+    /**
+     * Richer EXIF, extracted server-side by the worker from the original file
+     * (images/RAW only — videos don't carry these). All nullable: many photos
+     * are missing some or all of this (screenshots, edited exports, scans).
+     * Human-readable fields (flash, exposureProgram, whiteBalance, orientation)
+     * are stored as the translated text exifr produces, not raw codes.
+     */
+    cameraMake: varchar('camera_make', { length: 128 }),
+    cameraModel: varchar('camera_model', { length: 128 }),
+    lensModel: varchar('lens_model', { length: 191 }),
+    apertureF: double('aperture_f'),
+    shutterSpeedSec: double('shutter_speed_sec'),
+    iso: int('iso'),
+    focalLengthMm: double('focal_length_mm'),
+    flash: varchar('flash', { length: 191 }),
+    orientation: varchar('orientation', { length: 64 }),
+    exposureProgram: varchar('exposure_program', { length: 64 }),
+    whiteBalance: varchar('white_balance', { length: 64 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
   },

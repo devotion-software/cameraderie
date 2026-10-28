@@ -85,6 +85,13 @@
       "when": 1793188080479,
       "tag": "0011_fuzzy_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1793192662800,
+      "tag": "0012_round_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }
