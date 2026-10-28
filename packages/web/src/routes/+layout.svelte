@@ -82,8 +82,10 @@
           Settings
         </a>
       </nav>
-      <Avatar name={$session.data.user.name} src={avatarUrl} size={28} />
-      <span class="muted username">{$session.data.user.name}</span>
+      <div class="account">
+        <Avatar name={$session.data.user.name} src={avatarUrl} size={28} />
+        <span class="account-name">{$session.data.user.name}</span>
+      </div>
       <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
     {:else}
       <a href="/login" class="btn secondary">Sign in</a>
@@ -169,17 +171,32 @@
     border-radius: 2px;
     background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
   }
-  .username {
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 14px 5px 6px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .account-name {
+    font-family: var(--font-body);
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 500;
+    color: var(--text-dim);
     cursor: default;
   }
   @media (max-width: 680px) {
     .navlinks {
       gap: 14px;
     }
-    .username {
+    .account-name {
       display: none;
+    }
+    .account {
+      padding: 5px;
     }
   }
 </style>
