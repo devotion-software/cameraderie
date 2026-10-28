@@ -1,5 +1,21 @@
 import type { BeginUploadResponse, PresignedPart, UploadStatusResponse } from '@cameraderie/shared';
 import { api, ApiError } from './api';
+import type { MediaItem } from './types';
+
+/**
+ * Look up whether this group already has a photo/video with this exact
+ * checksum (uploaded by anyone). Byte-identical only — a re-encoded or
+ * EXIF-stripped copy of the same photo won't match.
+ */
+export async function checkDuplicate(
+  groupId: string,
+  checksumSha256: string,
+): Promise<MediaItem | null> {
+  const res = await api.get<{ duplicate: MediaItem | null }>(
+    `/groups/${groupId}/media/duplicate?checksum=${checksumSha256}`,
+  );
+  return res.duplicate;
+}
 
 /** Best-effort GPS read from EXIF — never blocks the upload if it fails. */
 async function readGps(file: File): Promise<{ latitude: number; longitude: number } | null> {
@@ -36,6 +52,8 @@ export interface UploadOptions {
   keepGps?: boolean;
   /** Keep camera/lens/exposure EXIF (make, model, aperture, etc). Defaults to true. */
   keepCameraExif?: boolean;
+  /** Reuse an already-computed SHA-256 (e.g. from a prior duplicate check) instead of re-hashing the file. */
+  checksumSha256?: string;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -56,7 +74,7 @@ export async function uploadFile(
   const keepGps = options?.keepGps ?? true;
   const keepCameraExif = options?.keepCameraExif ?? true;
   const [checksumSha256, gps] = await Promise.all([
-    sha256Hex(file),
+    options?.checksumSha256 ?? sha256Hex(file),
     keepGps ? readGps(file) : Promise.resolve(null),
   ]);
 

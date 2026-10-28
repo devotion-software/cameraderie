@@ -95,6 +95,36 @@ export default async function mediaRoutes(app: FastifyInstance) {
     return { media: rows };
   });
 
+  // Duplicate check (members only) — does this group already have a photo/video
+  // with this exact checksum? Used by the web upload flow to warn before
+  // re-uploading something someone (anyone in the group) already added.
+  // Byte-identical only: a re-encoded or EXIF-stripped copy won't match.
+  app.get<{ Params: { id: string }; Querystring: { checksum?: string } }>(
+    '/groups/:id/media/duplicate',
+    async (req) => {
+      const me = await requireUser(req);
+      await requireMembership(req.params.id, me.id);
+      const checksum = req.query.checksum;
+      if (!checksum || !/^[0-9a-f]{64}$/i.test(checksum)) {
+        return { duplicate: null };
+      }
+      const [row] = await db
+        .select()
+        .from(media)
+        .where(
+          and(
+            eq(media.groupId, req.params.id),
+            eq(media.checksumSha256, checksum.toLowerCase()),
+            eq(media.state, 'ready'),
+          ),
+        )
+        .limit(1);
+      if (!row) return { duplicate: null };
+      const [item] = await decorate(db, [row], me.id);
+      return { duplicate: item ?? null };
+    },
+  );
+
   // Media detail (members only).
   app.get<{ Params: { id: string } }>('/media/:id', async (req) => {
     const me = await requireUser(req);

@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
-  import { uploadFile } from '$lib/upload';
+  import { uploadFile, checkDuplicate, sha256Hex } from '$lib/upload';
   import { formatBytes, formatDuration } from '$lib/format';
   import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem, MediaLocation, Member } from '$lib/types';
@@ -201,13 +201,29 @@
       // closure over the pre-proxy object never triggers a re-render.
       const idx = uploads.length - 1;
       try {
+        const checksumSha256 = await sha256Hex(file);
+        const duplicate = await checkDuplicate(groupId, checksumSha256).catch(() => null);
+        if (duplicate) {
+          const ok = await confirmDialog({
+            title: 'Possible duplicate',
+            message: `"${file.name}" looks identical to a photo already in this group${
+              duplicate.uploaderName ? ` (uploaded by ${duplicate.uploaderName})` : ''
+            }. Upload it anyway?`,
+            confirmLabel: 'Upload anyway',
+            danger: false,
+          });
+          if (!ok) {
+            uploads[idx].error = 'Skipped — duplicate';
+            continue;
+          }
+        }
         await uploadFile(
           groupId,
           file,
           (f) => {
             uploads[idx].fraction = f;
           },
-          { keepGps, keepCameraExif },
+          { keepGps, keepCameraExif, checksumSha256 },
         );
       } catch (err) {
         uploads[idx].error = err instanceof Error ? err.message : 'Upload failed';

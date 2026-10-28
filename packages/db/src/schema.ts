@@ -277,6 +277,7 @@ export const media = mysqlTable(
     index('media_group_idx').on(t.groupId, t.createdAt),
     index('media_uploader_idx').on(t.uploaderId),
     index('media_state_idx').on(t.state),
+    index('media_group_checksum_idx').on(t.groupId, t.checksumSha256),
   ],
 );
 

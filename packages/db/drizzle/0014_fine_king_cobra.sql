@@ -1,0 +1,1 @@
+CREATE INDEX `media_group_checksum_idx` ON `media` (`group_id`,`checksum_sha256`);
