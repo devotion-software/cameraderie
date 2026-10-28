@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade, scale } from 'svelte/transition';
   import { getConfirmState, resolveConfirm } from '$lib/confirm.svelte';
 
   const state = getConfirmState();
@@ -11,7 +12,12 @@
 />
 
 {#if state.open}
-  <div class="backdrop" role="presentation" onclick={() => resolveConfirm(false)}>
+  <div
+    class="backdrop"
+    role="presentation"
+    onclick={() => resolveConfirm(false)}
+    transition:fade={{ duration: 150 }}
+  >
     <div
       class="dialog card"
       role="alertdialog"
@@ -19,6 +25,7 @@
       aria-label={state.title ?? 'Confirm'}
       tabindex="-1"
       onclick={(e) => e.stopPropagation()}
+      transition:scale={{ duration: 150, start: 0.96 }}
     >
       {#if state.title}<h2>{state.title}</h2>{/if}
       <p class="muted">{state.message}</p>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { slide } from 'svelte/transition';
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
@@ -101,11 +102,13 @@
 {/if}
 
 {#if usage && showStorage}
-  <StoragePanel {usage} />
+  <div transition:slide={{ duration: 180 }}>
+    <StoragePanel {usage} />
+  </div>
 {/if}
 
 {#if showCreate}
-  <form class="create card" onsubmit={createGroup}>
+  <form class="create card" onsubmit={createGroup} transition:slide={{ duration: 180 }}>
     <input
       class="input"
       placeholder="New group name…"

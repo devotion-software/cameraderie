@@ -153,6 +153,7 @@
     font-size: 0.93rem;
     position: relative;
     padding: 4px 0;
+    transition: color var(--dur-fast) ease;
   }
   .navlink:hover {
     text-decoration: none;

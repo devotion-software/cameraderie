@@ -1,4 +1,6 @@
 <script lang="ts" generics="T extends string">
+  import { fade, scale } from 'svelte/transition';
+
   interface Option {
     value: T;
     label: string;
@@ -112,6 +114,7 @@
       tabindex="-1"
       aria-label={label}
       onkeydown={onListKeydown}
+      transition:fade={{ duration: 120 }}
     >
       {#each options as option, i (option.value)}
         <li
@@ -205,6 +208,9 @@
     cursor: pointer;
     color: var(--text);
     white-space: nowrap;
+    transition:
+      background-color var(--dur-fast) ease,
+      color var(--dur-fast) ease;
   }
   .dropdown-option.active {
     background: var(--surface-2);

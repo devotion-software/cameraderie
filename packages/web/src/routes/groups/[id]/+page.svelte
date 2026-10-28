@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade, scale, slide } from 'svelte/transition';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
@@ -565,8 +566,16 @@
             {downloading ? 'Downloading…' : 'Download all'}
           </button>
           {#if showDownloadAllMenu}
-            <div class="menu-backdrop" onclick={() => (showDownloadAllMenu = false)}></div>
-            <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+            <div
+              class="menu-backdrop"
+              onclick={() => (showDownloadAllMenu = false)}
+              transition:fade={{ duration: 120 }}
+            ></div>
+            <div
+              class="download-menu"
+              onclick={(e) => e.stopPropagation()}
+              transition:scale={{ duration: 150, start: 0.96 }}
+            >
               <div class="quality-row">
                 <span class="muted">Quality</span>
                 <Dropdown options={QUALITY_OPTIONS} bind:value={downloadQuality} label="Quality" />
@@ -592,7 +601,11 @@
   </div>
 
   {#if showEditGroup}
-    <form class="card edit-group" onsubmit={saveGroupName}>
+    <form
+      class="card edit-group"
+      onsubmit={saveGroupName}
+      transition:slide={{ duration: 180 }}
+    >
       <label class="field">
         <span class="muted">Group name</span>
         <input class="input" bind:value={editName} maxlength={80} required />
@@ -666,8 +679,16 @@
         {downloading ? 'Downloading…' : 'Download'}
       </button>
       {#if showDownloadMenu}
-        <div class="menu-backdrop" onclick={() => (showDownloadMenu = false)}></div>
-        <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+        <div
+          class="menu-backdrop"
+          onclick={() => (showDownloadMenu = false)}
+          transition:fade={{ duration: 120 }}
+        ></div>
+        <div
+          class="download-menu"
+          onclick={(e) => e.stopPropagation()}
+          transition:scale={{ duration: 150, start: 0.96 }}
+        >
           <div class="quality-row">
             <span class="muted">Quality</span>
             <Dropdown options={QUALITY_OPTIONS} bind:value={downloadQuality} label="Quality" />
@@ -805,6 +826,7 @@
     class="context-menu"
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
     onclick={(e) => e.stopPropagation()}
+    transition:scale={{ duration: 120, start: 0.96 }}
   >
     <button class="context-item" onclick={openLightboxFromMenu}>⛶ Open fullscreen</button>
     {#if canManageCover}
@@ -821,7 +843,14 @@
 {/if}
 
 {#if lightboxItem}
-  <div class="lightbox" role="dialog" aria-modal="true" tabindex="-1" onclick={closeLightbox}>
+  <div
+    class="lightbox"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={closeLightbox}
+    transition:fade={{ duration: 150 }}
+  >
     <button class="lightbox-close" onclick={closeLightbox} aria-label="Close">✕</button>
     {#if lightboxIndex !== null && lightboxIndex > 0}
       <button
@@ -847,7 +876,11 @@
         ›
       </button>
     {/if}
-    <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="lightbox-content"
+      onclick={(e) => e.stopPropagation()}
+      transition:scale={{ duration: 150, start: 0.96 }}
+    >
       {#if lightboxItem.kind === 'video'}
         {#if lightboxItem.previewUrl}
           <!-- svelte-ignore a11y_media_has_caption -->
@@ -1031,6 +1064,9 @@
     background: var(--surface-2);
     color: var(--text-dim);
     cursor: pointer;
+    transition:
+      background-color var(--dur-fast) ease,
+      color var(--dur-fast) ease;
   }
   .fit-btn.active {
     background: var(--accent);
@@ -1125,6 +1161,9 @@
     border: 1px solid rgba(255, 255, 255, 0.8);
     cursor: pointer;
     z-index: 1;
+    transition:
+      background-color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
   }
   .overlay.check.checked {
     background: var(--accent);
@@ -1273,6 +1312,9 @@
     font-size: 13px;
     cursor: pointer;
     color: var(--text);
+    transition:
+      background-color var(--dur-fast) ease,
+      color var(--dur-fast) ease;
   }
   .context-item:not(.disabled):hover {
     background: var(--surface-2);
@@ -1331,6 +1373,7 @@
     color: #fff;
     font-size: 16px;
     cursor: pointer;
+    transition: background-color var(--dur-fast) ease;
   }
   .lightbox-close:hover {
     background: rgb(255 255 255 / 0.22);
@@ -1348,6 +1391,7 @@
     font-size: 24px;
     line-height: 1;
     cursor: pointer;
+    transition: background-color var(--dur-fast) ease;
   }
   .lightbox-nav:hover {
     background: rgb(255 255 255 / 0.22);

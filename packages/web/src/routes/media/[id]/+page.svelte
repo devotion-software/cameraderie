@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scale } from 'svelte/transition';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
@@ -318,7 +319,11 @@
         {downloading ? 'Preparing…' : 'Download'}
       </button>
       {#if showDownloadMenu}
-        <div class="download-menu" onclick={(e) => e.stopPropagation()}>
+        <div
+          class="download-menu"
+          onclick={(e) => e.stopPropagation()}
+          transition:scale={{ duration: 150, start: 0.96 }}
+        >
           <div class="quality-row">
             <span class="muted">Quality</span>
             <Dropdown options={qualityOptions} bind:value={downloadQuality} label="Quality" />
@@ -450,6 +455,7 @@
     font-size: 22px;
     line-height: 1;
     cursor: pointer;
+    transition: background-color var(--dur-fast) ease;
   }
   .stage-nav:hover {
     background: rgb(255 255 255 / 0.28);
@@ -553,6 +559,7 @@
     font-size: 13px;
     cursor: pointer;
     color: var(--text);
+    transition: background-color var(--dur-fast) ease;
   }
   .context-item:hover {
     background: var(--surface-2);

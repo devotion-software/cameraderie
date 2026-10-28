@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade, scale } from 'svelte/transition';
   import { api } from '$lib/api';
   import { uploadAvatar } from '$lib/avatar';
   import Avatar from './Avatar.svelte';
@@ -91,11 +92,16 @@
     aria-modal="true"
     tabindex="-1"
     onclick={() => (lightboxOpen = false)}
+    transition:fade={{ duration: 150 }}
   >
     <button class="lightbox-close" onclick={() => (lightboxOpen = false)} aria-label="Close">
       ✕
     </button>
-    <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="lightbox-content"
+      onclick={(e) => e.stopPropagation()}
+      transition:scale={{ duration: 150, start: 0.96 }}
+    >
       {#if avatarUrl}
         <img src={avatarUrl} alt={name} />
       {:else}
@@ -160,6 +166,7 @@
     color: #fff;
     font-size: 16px;
     cursor: pointer;
+    transition: background-color var(--dur-fast) ease;
   }
   .lightbox-close:hover {
     background: rgb(255 255 255 / 0.22);
