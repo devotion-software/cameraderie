@@ -874,7 +874,10 @@
               <span class="overlay kind">RAW</span>
             {/if}
             {#if m.favouriteCount > 0}
-              <span class="overlay fav">♥ {m.favouriteCount}</span>
+              <span class="overlay fav" title={m.favourited ? 'Liked by you' : 'Liked'}>
+                <span class="heart" class:mine={m.favourited}>{m.favourited ? '♥' : '♡'}</span>
+                {m.favouriteCount}
+              </span>
             {/if}
           </div>
         {:else if m.state === 'failed'}
@@ -1337,6 +1340,9 @@
   .overlay.fav {
     right: 8px;
     bottom: 8px;
+  }
+  .overlay.fav .heart.mine {
+    color: var(--danger);
   }
   .spinner {
     width: 12px;
