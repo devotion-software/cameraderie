@@ -30,11 +30,21 @@ export interface MediaItem {
   height: number | null;
   durationMs: number | null;
   capturedAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
   thumbnailUrl: string | null;
   previewUrl: string | null;
   favouriteCount: number;
   favourited: boolean;
+}
+
+export interface MediaLocation {
+  id: string;
+  kind: 'image' | 'raw' | 'video';
+  filename: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface Member {

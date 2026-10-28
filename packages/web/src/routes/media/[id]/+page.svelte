@@ -9,6 +9,7 @@
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
   import { confirmDialog } from '$lib/confirm.svelte';
+  import LeafletMap from '$lib/components/LeafletMap.svelte';
 
   const session = useSession();
   const mediaId = $derived(page.params.id);
@@ -273,9 +274,23 @@
         <dt>Duration</dt>
         <dd>{formatDuration(item.durationMs)}</dd>
       {/if}
+      {#if item.capturedAt}
+        <dt>Captured</dt>
+        <dd>{formatDate(item.capturedAt)}</dd>
+      {/if}
       <dt>Added</dt>
       <dd>{formatDate(item.createdAt)}</dd>
+      {#if item.latitude != null && item.longitude != null}
+        <dt>Location</dt>
+        <dd>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</dd>
+      {/if}
     </dl>
+    {#if item.latitude != null && item.longitude != null}
+      <LeafletMap
+        markers={[{ id: item.id, lat: item.latitude, lng: item.longitude }]}
+        height="220px"
+      />
+    {/if}
   </div>
 {/if}
 
@@ -431,5 +446,8 @@
   }
   .meta dd {
     margin: 0;
+  }
+  .meta :global(.map) {
+    margin-top: 16px;
   }
 </style>
