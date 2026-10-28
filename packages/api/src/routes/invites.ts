@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import { groups, invites, memberships } from '@cameraderie/db';
 import { createInviteBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
@@ -22,16 +22,75 @@ export default async function invitesRoutes(app: FastifyInstance) {
       const body = parse(createInviteBody, req.body ?? {});
       const id = newId();
       const code = newInviteCode();
+      const maxUses = body.maxUses ?? null;
+      const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+      const createdAt = new Date();
       await db.insert(invites).values({
         id,
         groupId: req.params.id,
         code,
         createdBy: me.id,
         inviteeEmail: body.email ? body.email.toLowerCase() : null,
-        maxUses: body.maxUses ?? null,
-        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        maxUses,
+        expiresAt,
+        createdAt,
       });
-      return { invite: { id, code, groupId: req.params.id, inviteeEmail: body.email ?? null } };
+      return {
+        invite: {
+          id,
+          code,
+          groupId: req.params.id,
+          inviteeEmail: body.email ?? null,
+          maxUses,
+          uses: 0,
+          expiresAt,
+          createdAt,
+        },
+      };
+    },
+  );
+
+  // List pending (not expired, not exhausted) invites for a group.
+  app.get<{ Params: { id: string } }>('/groups/:id/invites', async (req) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id, 'admin');
+    const rows = await db
+      .select()
+      .from(invites)
+      .where(
+        and(
+          eq(invites.groupId, req.params.id),
+          or(isNull(invites.expiresAt), gt(invites.expiresAt, new Date())),
+          or(isNull(invites.maxUses), lt(invites.uses, invites.maxUses)),
+        ),
+      );
+    return {
+      invites: rows.map((r) => ({
+        id: r.id,
+        code: r.code,
+        inviteeEmail: r.inviteeEmail,
+        maxUses: r.maxUses,
+        uses: r.uses,
+        expiresAt: r.expiresAt,
+        createdAt: r.createdAt,
+      })),
+    };
+  });
+
+  // Revoke a pending invite before it's used.
+  app.delete<{ Params: { id: string; inviteId: string } }>(
+    '/groups/:id/invites/:inviteId',
+    async (req, reply) => {
+      const me = await requireUser(req);
+      await requireMembership(req.params.id, me.id, 'admin');
+      const [invite] = await db
+        .select()
+        .from(invites)
+        .where(and(eq(invites.id, req.params.inviteId), eq(invites.groupId, req.params.id)))
+        .limit(1);
+      if (!invite) throw notFound('Invite not found');
+      await db.delete(invites).where(eq(invites.id, req.params.inviteId));
+      reply.code(204);
     },
   );
 

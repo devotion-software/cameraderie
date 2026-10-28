@@ -6,7 +6,7 @@
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
-  import type { Group, Member } from '$lib/types';
+  import type { Group, Invite, Member } from '$lib/types';
   import Avatar from '$lib/components/Avatar.svelte';
   import { confirmDialog } from '$lib/confirm.svelte';
 
@@ -15,6 +15,7 @@
 
   let group = $state<Group | null>(null);
   let members = $state<Member[]>([]);
+  let invites = $state<Invite[]>([]);
   let error = $state('');
   let loading = $state(true);
 
@@ -41,6 +42,9 @@
       ]);
       group = g.group;
       members = m.members;
+      if (group.myRole === 'owner' || group.myRole === 'admin') {
+        invites = (await api.get<{ invites: Invite[] }>(`/groups/${groupId}/invites`)).invites;
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load members';
     } finally {
@@ -60,10 +64,11 @@
     invitingBusy = true;
     error = '';
     try {
-      const res = await api.post<{ invite: { code: string } }>(`/groups/${groupId}/invites`, {
+      const res = await api.post<{ invite: Invite }>(`/groups/${groupId}/invites`, {
         email: inviteEmail.trim() || undefined,
       });
       inviteUrl = `${location.origin}/invite/${res.invite.code}`;
+      invites = [...invites, res.invite];
       inviteEmail = '';
       showInvite = false;
       await navigator.clipboard?.writeText(inviteUrl).catch(() => {});
@@ -71,6 +76,22 @@
       error = err instanceof Error ? err.message : 'Failed to create invite';
     } finally {
       invitingBusy = false;
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    const ok = await confirmDialog({
+      title: 'Revoke invite',
+      message: 'Revoke this invite? The link will stop working.',
+      confirmLabel: 'Revoke',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.del(`/groups/${groupId}/invites/${inviteId}`);
+      invites = invites.filter((i) => i.id !== inviteId);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to revoke invite';
     }
   }
 
@@ -135,6 +156,25 @@
 
 {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
+{#if !loading && amGroupAdmin && invites.length > 0}
+  <h2 class="section-heading">Pending invites</h2>
+  <div class="list invite-list">
+    {#each invites as i (i.id)}
+      <div class="card invite-row" transition:slide={{ duration: 180 }} animate:flip={{ duration: 200 }}>
+        <div class="who">
+          <strong>{i.inviteeEmail ?? 'Shareable link'}</strong>
+          <span class="muted"
+            >{i.uses}{i.maxUses !== null ? ` / ${i.maxUses}` : ''} used · created {formatDate(
+              i.createdAt,
+            )}{i.expiresAt ? ` · expires ${formatDate(i.expiresAt)}` : ''}</span
+          >
+        </div>
+        <button class="btn danger" onclick={() => revokeInvite(i.id)}>Revoke</button>
+      </div>
+    {/each}
+  </div>
+{/if}
+
 {#if loading}
   <p class="muted">Loading…</p>
 {:else}
@@ -164,6 +204,26 @@
     gap: 16px;
     margin-bottom: 16px;
     flex-wrap: wrap;
+  }
+  .section-heading {
+    font-size: 15px;
+    margin: 0 0 10px;
+  }
+  .invite-list {
+    margin-bottom: 20px;
+  }
+  .invite-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+  }
+  .invite-row .who {
+    flex: 1;
+    min-width: 0;
+  }
+  .invite-row .muted {
+    font-size: 12px;
   }
   .invite {
     display: flex;

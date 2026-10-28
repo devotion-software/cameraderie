@@ -71,6 +71,16 @@ export interface Member {
   photoCount: number;
 }
 
+export interface Invite {
+  id: string;
+  code: string;
+  inviteeEmail: string | null;
+  maxUses: number | null;
+  uses: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
