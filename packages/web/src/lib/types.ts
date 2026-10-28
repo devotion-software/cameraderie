@@ -84,6 +84,15 @@ export interface Invite {
   createdAt: string;
 }
 
+export interface MyInvite {
+  id: string;
+  code: string;
+  groupId: string;
+  groupName: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface Profile {
   id: string;
   email: string;

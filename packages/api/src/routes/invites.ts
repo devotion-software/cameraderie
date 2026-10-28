@@ -110,6 +110,55 @@ export default async function invitesRoutes(app: FastifyInstance) {
     };
   });
 
+  // List my pending invitations (invites addressed to my email, for groups
+  // I haven't already joined).
+  app.get('/me/invites', async (req) => {
+    const me = await requireUser(req);
+    const email = me.email.toLowerCase();
+    const rows = await db
+      .select({ invite: invites, group: groups })
+      .from(invites)
+      .innerJoin(groups, eq(groups.id, invites.groupId))
+      .leftJoin(
+        memberships,
+        and(eq(memberships.groupId, invites.groupId), eq(memberships.userId, me.id)),
+      )
+      .where(
+        and(
+          eq(invites.inviteeEmail, email),
+          isNull(memberships.id),
+          or(isNull(invites.expiresAt), gt(invites.expiresAt, new Date())),
+          or(isNull(invites.maxUses), lt(invites.uses, invites.maxUses)),
+        ),
+      );
+    return {
+      invites: rows.map((r) => ({
+        id: r.invite.id,
+        code: r.invite.code,
+        groupId: r.group.id,
+        groupName: r.group.name,
+        expiresAt: r.invite.expiresAt,
+        createdAt: r.invite.createdAt,
+      })),
+    };
+  });
+
+  // Decline one of my pending invitations.
+  app.post<{ Params: { code: string } }>('/invites/:code/decline', async (req, reply) => {
+    const me = await requireUser(req);
+    const [invite] = await db
+      .select()
+      .from(invites)
+      .where(eq(invites.code, req.params.code))
+      .limit(1);
+    if (!invite) throw notFound('Invite not found');
+    if (invite.inviteeEmail !== me.email.toLowerCase()) {
+      throw forbidden('This invite was addressed to a different email address');
+    }
+    await db.delete(invites).where(eq(invites.id, invite.id));
+    reply.code(204);
+  });
+
   // Accept an invite and join the group.
   app.post<{ Params: { code: string } }>('/invites/:code/accept', async (req) => {
     const me = await requireUser(req);
