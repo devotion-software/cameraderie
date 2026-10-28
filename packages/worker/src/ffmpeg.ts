@@ -85,10 +85,21 @@ export async function probe(inputPath: string): Promise<ProbeResult> {
   };
 }
 
-/** Extract a single representative frame to a PNG file. */
-export async function extractFrame(inputPath: string, outputPath: string): Promise<void> {
+/**
+ * Extract a single representative frame to a PNG file.
+ *
+ * `seekSeconds` skips a little into the input first so video thumbnails don't
+ * grab a black lead-in frame. Still-image inputs (a RAW's embedded preview, or
+ * a HEIC libvips can't decode) have no lead-in to skip — seeking past their
+ * single frame produces an empty output — so callers extracting from a still
+ * must pass 0.
+ */
+export async function extractFrame(
+  inputPath: string,
+  outputPath: string,
+  seekSeconds = 1,
+): Promise<void> {
   const env = loadEnv();
-  // Seek a little in so we don't grab a black lead-in frame.
   await run(
     ffmpegBin(),
     [
@@ -97,11 +108,12 @@ export async function extractFrame(inputPath: string, outputPath: string): Promi
       '-threads',
       String(env.FFMPEG_THREADS),
       ...INPUT_GUARD,
-      '-ss',
-      '1',
+      ...(seekSeconds > 0 ? ['-ss', String(seekSeconds)] : []),
       '-i',
       inputPath,
       '-frames:v',
+      '1',
+      '-update',
       '1',
       '-f',
       'image2',

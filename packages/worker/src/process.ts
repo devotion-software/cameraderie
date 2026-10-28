@@ -135,13 +135,48 @@ async function processImageOrRaw(
   keepMetadata: boolean,
 ): Promise<Dims> {
   if (row.kind === 'raw') return processRaw(row, originalPath, workdir, keepMetadata);
-  const { width, height } = await makeImageDerivatives(
-    originalPath,
-    row.id,
-    row.kind,
-    keepMetadata,
-  );
-  return { width, height, durationMs: null };
+  return processImage(row, originalPath, workdir, keepMetadata);
+}
+
+/**
+ * Image derivative generation, best source first:
+ *   1. sharp/libvips directly.
+ *   2. ffmpeg — decodes the frame itself. Needed for HEIC: sharp's bundled
+ *      libheif can read the container's metadata but has no HEVC decoding
+ *      plugin (unlicensed codec, omitted from the prebuilt binary), so it
+ *      fails on the actual iPhone-shot HEIC photos that use that codec.
+ * The original is never modified; if both fail the media still becomes
+ * 'ready' (sans derivatives) so it appears in the feed.
+ */
+async function processImage(
+  row: Media,
+  originalPath: string,
+  workdir: string,
+  keepMetadata: boolean,
+): Promise<Dims> {
+  try {
+    const { width, height } = await makeImageDerivatives(
+      originalPath,
+      row.id,
+      row.kind,
+      keepMetadata,
+    );
+    return { width, height, durationMs: null };
+  } catch (err) {
+    console.warn(`[worker] sharp failed on image ${row.id}, trying ffmpeg frame extraction`, err);
+  }
+
+  try {
+    const framePath = join(workdir, 'frame.png');
+    await extractFrame(originalPath, framePath, 0);
+    const { width, height } = await makeImageDerivatives(framePath, row.id, row.kind, keepMetadata);
+    return { width, height, durationMs: null };
+  } catch (err) {
+    console.error(`[worker] could not derive any preview for image ${row.id}`, err);
+    await markDerivativeFailed(row.id, 'thumbnail', thumbnailKey(row.id));
+    await markDerivativeFailed(row.id, 'preview', previewKey(row.id, row.kind));
+    return { width: null, height: null, durationMs: null };
+  }
 }
 
 /**
@@ -183,7 +218,7 @@ async function processRaw(
   // 3. ffmpeg embedded preview.
   try {
     const framePath = join(workdir, 'frame.png');
-    await extractFrame(originalPath, framePath);
+    await extractFrame(originalPath, framePath, 0);
     const { width, height } = await makeImageDerivatives(framePath, row.id, row.kind, keepMetadata);
     return { width, height, durationMs: null };
   } catch (err) {
