@@ -907,12 +907,16 @@
   {/if}
 
   {#if uploads.length}
-    <div class="card uploads">
+    <div class="card uploads" transition:slide={{ duration: 180 }}>
       {#each uploads as u (u.name)}
-        <div class="up">
+        <div class="up" transition:slide={{ duration: 180 }} animate:flip={{ duration: 200 }}>
           <span class="upname">{u.name}</span>
           {#if u.error}
             <span class="error inline">{u.error}</span>
+          {:else if u.fraction >= 1}
+            <span class="up-done" in:scale={{ duration: 260, start: 0.5, easing: backOut }}
+              >✓ Uploaded</span
+            >
           {:else}
             <div class="bar"><div class="fill" style="width: {u.fraction * 100}%"></div></div>
             <span class="muted pct">{Math.round(u.fraction * 100)}%</span>
@@ -1407,6 +1411,12 @@
   .inline {
     padding: 2px 8px;
     font-size: 12px;
+  }
+  .up-done {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    display: inline-block;
   }
   .bar {
     flex: 1;
