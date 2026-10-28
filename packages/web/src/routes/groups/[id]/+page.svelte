@@ -20,6 +20,10 @@
   let loading = $state(true);
   let error = $state('');
 
+  let likedOnly = $state(false);
+  let sort = $state<'newest' | 'oldest'>('newest');
+  const feedQuery = $derived(`liked=${likedOnly}&sort=${sort}`);
+
   const MEMBER_AVATAR_LIMIT = 5;
   const overflowing = $derived(members.length > MEMBER_AVATAR_LIMIT);
   const visibleMembers = $derived(
@@ -82,7 +86,7 @@
 
   async function refreshFeed() {
     const res = await api.get<{ media: MediaItem[]; nextCursor: string | null }>(
-      `/groups/${groupId}/media?limit=30`,
+      `/groups/${groupId}/media?limit=30&${feedQuery}`,
     );
     items = res.media;
     nextCursor = res.nextCursor;
@@ -91,10 +95,21 @@
   async function loadMore() {
     if (!nextCursor) return;
     const res = await api.get<{ media: MediaItem[]; nextCursor: string | null }>(
-      `/groups/${groupId}/media?limit=30&before=${encodeURIComponent(nextCursor)}`,
+      `/groups/${groupId}/media?limit=30&${feedQuery}&before=${encodeURIComponent(nextCursor)}`,
     );
     items = [...items, ...res.media];
     nextCursor = res.nextCursor;
+  }
+
+  async function onFilterChange() {
+    loading = true;
+    try {
+      await refreshFeed();
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to load media';
+    } finally {
+      loading = false;
+    }
   }
 
   async function onFiles(e: Event) {
@@ -434,10 +449,41 @@
   </div>
 {/if}
 
+{#if group}
+  <div class="filter-bar">
+    <button
+      class="btn secondary"
+      class:active={likedOnly}
+      onclick={() => {
+        likedOnly = !likedOnly;
+        void onFilterChange();
+      }}
+    >
+      ♥ Liked only
+    </button>
+    <span class="spacer"></span>
+    <label class="sort-select">
+      <span class="muted">Sort</span>
+      <select
+        class="input"
+        bind:value={sort}
+        onchange={() => void onFilterChange()}
+      >
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+    </label>
+  </div>
+{/if}
+
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if items.length === 0}
-  <p class="muted">No photos or videos yet. Hit Upload to add the first.</p>
+  <p class="muted">
+    {likedOnly
+      ? 'No liked photos or videos yet.'
+      : 'No photos or videos yet. Hit Upload to add the first.'}
+  </p>
 {:else}
   <div class="grid">
     {#each items as m (m.id)}
@@ -596,6 +642,26 @@
     width: 40px;
     text-align: right;
     font-size: 12px;
+  }
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .filter-bar .btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .sort-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .sort-select select {
+    padding: 6px 10px;
+    font-size: 13px;
   }
   .select-bar {
     display: flex;

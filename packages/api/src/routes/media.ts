@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Readable } from 'node:stream';
 import archiver from 'archiver';
 import sharp from 'sharp';
-import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
 import { derivatives, favourites, media, user } from '@cameraderie/db';
 import {
   downloadZipBody,
@@ -25,37 +25,49 @@ export default async function mediaRoutes(app: FastifyInstance) {
   const db = getDb();
 
   // Paginated feed for a group (members only). Cursor by createdAt (ISO string).
-  app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>(
-    '/groups/:id/media',
-    async (req) => {
-      const me = await requireUser(req);
-      await requireMembership(req.params.id, me.id);
+  app.get<{
+    Params: { id: string };
+    Querystring: { limit?: string; before?: string; sort?: string; liked?: string };
+  }>('/groups/:id/media', async (req) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id);
 
-      const limit = clampLimit(req.query.limit);
-      const before = req.query.before ? new Date(req.query.before) : null;
+    const limit = clampLimit(req.query.limit);
+    const before = req.query.before ? new Date(req.query.before) : null;
+    const oldest = req.query.sort === 'oldest';
+    const likedOnly = req.query.liked === 'true';
 
-      // Quarantined items are never listed — they exist only as preserved
-      // evidence (see the worker's content-safety path).
-      const notQuarantined = ne(media.state, 'quarantined');
-      const where =
-        before && !Number.isNaN(before.getTime())
-          ? and(eq(media.groupId, req.params.id), lt(media.createdAt, before), notQuarantined)
-          : and(eq(media.groupId, req.params.id), notQuarantined);
+    // Quarantined items are never listed — they exist only as preserved
+    // evidence (see the worker's content-safety path).
+    const conditions = [eq(media.groupId, req.params.id), ne(media.state, 'quarantined')];
 
-      const rows = await db
-        .select()
-        .from(media)
-        .where(where)
-        .orderBy(desc(media.createdAt))
-        .limit(limit + 1);
+    if (before && !Number.isNaN(before.getTime())) {
+      conditions.push(oldest ? gt(media.createdAt, before) : lt(media.createdAt, before));
+    }
 
-      const hasMore = rows.length > limit;
-      const page = rows.slice(0, limit);
-      const items = await decorate(db, page, me.id);
-      const nextCursor = hasMore ? page[page.length - 1]!.createdAt.toISOString() : null;
-      return { media: items, nextCursor };
-    },
-  );
+    if (likedOnly) {
+      const likedRows = await db
+        .select({ id: favourites.mediaId })
+        .from(favourites)
+        .where(eq(favourites.userId, me.id));
+      const likedIds = likedRows.map((r) => r.id);
+      if (likedIds.length === 0) return { media: [], nextCursor: null };
+      conditions.push(inArray(media.id, likedIds));
+    }
+
+    const rows = await db
+      .select()
+      .from(media)
+      .where(and(...conditions))
+      .orderBy(oldest ? asc(media.createdAt) : desc(media.createdAt))
+      .limit(limit + 1);
+
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit);
+    const items = await decorate(db, page, me.id);
+    const nextCursor = hasMore ? page[page.length - 1]!.createdAt.toISOString() : null;
+    return { media: items, nextCursor };
+  });
 
   // Media detail (members only).
   app.get<{ Params: { id: string } }>('/media/:id', async (req) => {
@@ -220,16 +232,27 @@ async function resolveDownloadSource(
   }
 
   const sourceKey =
-    row.kind === 'raw' ? (await loadReadyDerivative(db, row.id, 'preview')).objectKey : row.objectKey;
+    row.kind === 'raw'
+      ? (await loadReadyDerivative(db, row.id, 'preview')).objectKey
+      : row.objectKey;
   const source = await getObjectStream(sourceKey);
   const spec = IMAGE_DOWNLOAD_QUALITY_SPECS[quality];
   const resized = source.pipe(
     sharp()
       .rotate()
-      .resize({ width: spec.maxEdge, height: spec.maxEdge, fit: 'inside', withoutEnlargement: true })
+      .resize({
+        width: spec.maxEdge,
+        height: spec.maxEdge,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .jpeg({ quality: spec.quality }),
   );
-  return { stream: resized, filename: withExtension(row.filename, '.jpg'), contentType: 'image/jpeg' };
+  return {
+    stream: resized,
+    filename: withExtension(row.filename, '.jpg'),
+    contentType: 'image/jpeg',
+  };
 }
 
 /** Disambiguate repeated filenames ("IMG_0001.jpg" -> "IMG_0001 (1).jpg"). */
@@ -238,7 +261,9 @@ function uniqueFilename(filename: string, seen: Map<string, number>): string {
   seen.set(filename, count + 1);
   if (count === 0) return filename;
   const dot = filename.lastIndexOf('.');
-  return dot > 0 ? `${filename.slice(0, dot)} (${count})${filename.slice(dot)}` : `${filename} (${count})`;
+  return dot > 0
+    ? `${filename.slice(0, dot)} (${count})${filename.slice(dot)}`
+    : `${filename} (${count})`;
 }
 
 function clampLimit(raw: string | undefined): number {
