@@ -1094,46 +1094,48 @@
         in:fade={{ duration: 150 }}
         animate:flip={{ duration: 200 }}
       >
-        {#if selectMode}
-          <button
-            class="overlay check"
-            class:checked={selected.has(m.id)}
-            onclick={(e) => toggleSelected(m.id, e)}
-            title={selected.has(m.id) ? 'Deselect' : 'Select'}
-          >
-            {selected.has(m.id) ? '✓' : ''}
-          </button>
-        {/if}
-        {#if m.thumbnailUrl}
-          <div class="media">
-            <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
-            {#if m.kind === 'video'}
-              <span class="overlay play">▶ {formatDuration(m.durationMs) ?? ''}</span>
-            {:else if m.kind === 'raw'}
-              <span class="overlay kind">RAW</span>
-            {/if}
+        <div class="tile-surface">
+          {#if selectMode}
             <button
-              class="overlay fav"
-              class:visible={m.favouriteCount > 0}
-              onclick={(e) => toggleFavourite(m, e)}
-              title={m.favourited ? 'Unlike' : 'Like'}
+              class="overlay check"
+              class:checked={selected.has(m.id)}
+              onclick={(e) => toggleSelected(m.id, e)}
+              title={selected.has(m.id) ? 'Deselect' : 'Select'}
             >
-              {#key m.favourited}
-                <span
-                  class="heart"
-                  class:mine={m.favourited}
-                  in:scale={{ duration: 280, start: 0.4, easing: backOut }}
-                  >{m.favourited ? '♥' : '♡'}</span
-                >
-              {/key}
-              {#if m.favouriteCount > 0}{m.favouriteCount}{/if}
+              {selected.has(m.id) ? '✓' : ''}
             </button>
-          </div>
-        {:else if m.state === 'failed'}
-          <div class="placeholder failed">⚠︎ failed</div>
-        {:else}
-          <div class="placeholder"><span class="spinner"></span> processing</div>
-        {/if}
+          {/if}
+          {#if m.thumbnailUrl}
+            <div class="media">
+              <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
+              {#if m.kind === 'video'}
+                <span class="overlay play">▶ {formatDuration(m.durationMs) ?? ''}</span>
+              {:else if m.kind === 'raw'}
+                <span class="overlay kind">RAW</span>
+              {/if}
+              <button
+                class="overlay fav"
+                class:visible={m.favouriteCount > 0}
+                onclick={(e) => toggleFavourite(m, e)}
+                title={m.favourited ? 'Unlike' : 'Like'}
+              >
+                {#key m.favourited}
+                  <span
+                    class="heart"
+                    class:mine={m.favourited}
+                    in:scale={{ duration: 280, start: 0.4, easing: backOut }}
+                    >{m.favourited ? '♥' : '♡'}</span
+                  >
+                {/key}
+                {#if m.favouriteCount > 0}{m.favouriteCount}{/if}
+              </button>
+            </div>
+          {:else if m.state === 'failed'}
+            <div class="placeholder failed">⚠︎ failed</div>
+          {:else}
+            <div class="placeholder"><span class="spinner"></span> processing</div>
+          {/if}
+        </div>
       </a>
     {/each}
   </div>
@@ -1575,19 +1577,28 @@
   .tile {
     position: relative;
     aspect-ratio: 1;
+    display: block;
+  }
+  /* The hover lift/scale lives on this inner element rather than .tile
+     itself — .tile also carries animate:flip during reordering/filtering,
+     and a CSS transition fighting a Svelte-driven transform on the same
+     element is what made that animation look glitchy. */
+  .tile-surface {
+    position: relative;
+    width: 100%;
+    height: 100%;
     border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--surface-2);
     backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--border);
-    display: block;
     box-shadow: inset 0 1px 0 var(--glass-highlight);
     transition:
       transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1),
       box-shadow 0.2s ease,
       border-color 0.2s ease;
   }
-  .tile.selected {
+  .tile.selected .tile-surface {
     border-color: var(--accent);
     box-shadow:
       0 0 0 2px var(--accent),
@@ -1613,7 +1624,7 @@
     background: var(--accent);
     border-color: var(--accent);
   }
-  .tile:hover {
+  .tile:hover .tile-surface {
     transform: translateY(-4px) scale(1.02);
     border-color: var(--accent);
     box-shadow:
@@ -1635,16 +1646,18 @@
   }
   .contain-tiles .tile {
     container-type: size;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .contain-tiles .tile-surface {
     overflow: visible;
     background: none;
     backdrop-filter: none;
     border: none;
     box-shadow: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
-  .contain-tiles .tile:hover {
+  .contain-tiles .tile:hover .tile-surface {
     border-color: transparent;
     box-shadow: none;
   }
