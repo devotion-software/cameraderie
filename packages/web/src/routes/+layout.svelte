@@ -38,7 +38,15 @@
       !page.url.pathname.startsWith('/consent') &&
       !page.url.pathname.startsWith('/legal')
     ) {
-      goto('/consent');
+      // Preserve wherever the user was actually headed (e.g. an invite
+      // link) so accepting terms doesn't strand them on the generic
+      // /groups landing page. If we're still on /login mid-redirect, its
+      // own `redirect` param carries the real destination instead.
+      const target =
+        page.url.pathname === '/login'
+          ? page.url.searchParams.get('redirect')
+          : page.url.pathname + page.url.search;
+      goto(target ? `/consent?redirect=${encodeURIComponent(target)}` : '/consent');
     }
   });
 
