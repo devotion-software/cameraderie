@@ -6,9 +6,10 @@
   import { uploadFile } from '$lib/upload';
   import { formatBytes, formatDuration } from '$lib/format';
   import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
-  import type { Group, MediaItem, Member } from '$lib/types';
+  import type { Group, MediaItem, MediaLocation, Member } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
+  import LeafletMap from '$lib/components/LeafletMap.svelte';
 
   const session = useSession();
   const groupId = $derived(page.params.id as string);
@@ -23,6 +24,27 @@
   let likedOnly = $state(false);
   let sort = $state<'newest' | 'oldest'>('newest');
   const feedQuery = $derived(`liked=${likedOnly}&sort=${sort}`);
+
+  let showMap = $state(false);
+  let mapLocations = $state<MediaLocation[] | null>(null);
+  let mapLoading = $state(false);
+
+  async function toggleMap() {
+    showMap = !showMap;
+    if (showMap && mapLocations === null) {
+      mapLoading = true;
+      try {
+        const res = await api.get<{ media: MediaLocation[] }>(
+          `/groups/${groupId}/media/locations`,
+        );
+        mapLocations = res.media;
+      } catch (err) {
+        error = err instanceof Error ? err.message : 'Failed to load map';
+      } finally {
+        mapLoading = false;
+      }
+    }
+  }
 
   const TILE_FIT_KEY = 'cameraderie:tileFit';
   let tileFit = $state<'square' | 'contain'>('square');
@@ -397,6 +419,9 @@
         {/if}
       </a>
       {#if items.length > 0}
+        <button class="btn secondary" class:active={showMap} onclick={toggleMap}>
+          {showMap ? 'Grid' : 'Map'}
+        </button>
         <button class="btn secondary" onclick={toggleSelectMode}>
           {selectMode ? 'Cancel' : 'Select'}
         </button>
@@ -487,7 +512,7 @@
   </div>
 {/if}
 
-{#if group}
+{#if group && !showMap}
   <div class="filter-bar">
     <button
       class="btn secondary"
@@ -530,7 +555,26 @@
   </div>
 {/if}
 
-{#if loading}
+{#if showMap}
+  <div class="card map-card">
+    {#if mapLoading}
+      <p class="muted">Loading map…</p>
+    {:else if !mapLocations || mapLocations.length === 0}
+      <p class="muted">No photos or videos with location data yet.</p>
+    {:else}
+      <LeafletMap
+        height="480px"
+        markers={mapLocations.map((m) => ({
+          id: m.id,
+          lat: m.latitude,
+          lng: m.longitude,
+          href: `/media/${m.id}`,
+          popupHtml: `<strong>${m.filename}</strong>`,
+        }))}
+      />
+    {/if}
+  </div>
+{:else if loading}
   <p class="muted">Loading…</p>
 {:else if items.length === 0}
   <p class="muted">
@@ -676,6 +720,13 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .actions .btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .map-card {
+    margin-bottom: 20px;
   }
   .member-link {
     display: inline-flex;
