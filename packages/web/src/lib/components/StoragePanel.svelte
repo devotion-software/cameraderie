@@ -11,8 +11,8 @@
   <h2>Storage</h2>
   <div class="row">
     <span class="muted"
-      >{formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} used ({Math.round(
-        usedPct,
+      >{formatBytes(usage.usedBytes)} of {formatBytes(usage.quotaBytes)} used ({usedPct.toFixed(
+        2,
       )}%)</span
     >
     <span class="spacer"></span>
