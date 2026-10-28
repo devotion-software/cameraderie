@@ -466,6 +466,21 @@
     selected = next;
   }
 
+  async function toggleFavourite(m: MediaItem, e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = !m.favourited;
+    m.favourited = next;
+    m.favouriteCount += next ? 1 : -1;
+    try {
+      if (next) await api.put(`/media/${m.id}/favourite`);
+      else await api.del(`/media/${m.id}/favourite`);
+    } catch {
+      m.favourited = !next;
+      m.favouriteCount += next ? -1 : 1;
+    }
+  }
+
   let lightboxIndex = $state<number | null>(null);
   const lightboxItem = $derived(lightboxIndex !== null ? (items[lightboxIndex] ?? null) : null);
 
@@ -1047,12 +1062,15 @@
             {:else if m.kind === 'raw'}
               <span class="overlay kind">RAW</span>
             {/if}
-            {#if m.favouriteCount > 0}
-              <span class="overlay fav" title={m.favourited ? 'Liked by you' : 'Liked'}>
-                <span class="heart" class:mine={m.favourited}>{m.favourited ? '♥' : '♡'}</span>
-                {m.favouriteCount}
-              </span>
-            {/if}
+            <button
+              class="overlay fav"
+              class:visible={m.favouriteCount > 0}
+              onclick={(e) => toggleFavourite(m, e)}
+              title={m.favourited ? 'Unlike' : 'Like'}
+            >
+              <span class="heart" class:mine={m.favourited}>{m.favourited ? '♥' : '♡'}</span>
+              {#if m.favouriteCount > 0}{m.favouriteCount}{/if}
+            </button>
           </div>
         {:else if m.state === 'failed'}
           <div class="placeholder failed">⚠︎ failed</div>
@@ -1613,6 +1631,18 @@
   .overlay.fav {
     right: 8px;
     bottom: 8px;
+    border: none;
+    cursor: pointer;
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-fast) ease;
+  }
+  .overlay.fav.visible,
+  .tile:hover .overlay.fav,
+  .overlay.fav:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
   }
   .overlay.fav .heart.mine {
     color: var(--danger);
