@@ -265,6 +265,7 @@ select {
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
+  text-decoration: none;
   box-shadow: 0 8px 24px -8px hsl(var(--shadow-color) / 0.55);
   transition:
     transform 0.15s ease,
@@ -273,6 +274,9 @@ select {
     border-color 0.15s ease,
     color 0.15s ease,
     background 0.15s ease;
+}
+.btn:hover {
+  text-decoration: none;
 }
 .btn:hover:not(:disabled) {
   transform: translateY(-1px);
