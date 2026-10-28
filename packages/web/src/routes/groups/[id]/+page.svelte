@@ -601,31 +601,32 @@
     >
       ♥ Liked only
     </button>
-    <span class="spacer"></span>
-    <div class="fit-toggle" role="group" aria-label="Image fit">
-      <button
-        class="fit-btn"
-        class:active={tileFit === 'square'}
-        onclick={() => setTileFit('square')}
-      >
-        Fit to square
-      </button>
-      <button
-        class="fit-btn"
-        class:active={tileFit === 'contain'}
-        onclick={() => setTileFit('contain')}
-      >
-        Contain
-      </button>
-    </div>
-    <div class="sort-select">
-      <span class="muted">Sort</span>
-      <Dropdown
-        options={SORT_OPTIONS}
-        bind:value={sort}
-        label="Sort"
-        onchange={() => void onFilterChange()}
-      />
+    <div class="view-controls">
+      <div class="fit-toggle" role="group" aria-label="Image fit">
+        <button
+          class="fit-btn"
+          class:active={tileFit === 'square'}
+          onclick={() => setTileFit('square')}
+        >
+          Fit to square
+        </button>
+        <button
+          class="fit-btn"
+          class:active={tileFit === 'contain'}
+          onclick={() => setTileFit('contain')}
+        >
+          Contain
+        </button>
+      </div>
+      <div class="sort-select">
+        <span class="muted">Sort</span>
+        <Dropdown
+          options={SORT_OPTIONS}
+          bind:value={sort}
+          label="Sort"
+          onchange={() => void onFilterChange()}
+        />
+      </div>
     </div>
   </div>
 {/if}
@@ -869,21 +870,38 @@
   .filter-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    row-gap: 10px;
+    column-gap: 12px;
     margin-bottom: 16px;
+  }
+  .filter-bar .btn.secondary {
+    height: 36px;
+    padding: 0 18px;
   }
   .filter-bar .btn.active {
     border-color: var(--accent);
     color: var(--accent);
   }
+  .view-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-left: auto;
+  }
   .fit-toggle {
     display: flex;
+    align-items: stretch;
+    height: 36px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     overflow: hidden;
   }
   .fit-btn {
-    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
     font-size: 13px;
     border: none;
     background: var(--surface-2);
@@ -899,6 +917,10 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
+  }
+  .sort-select :global(.dropdown-trigger) {
+    height: 36px;
+    padding: 0 12px;
   }
   .select-bar {
     display: flex;
