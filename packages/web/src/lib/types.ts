@@ -32,6 +32,17 @@ export interface MediaItem {
   capturedAt: string | null;
   latitude: number | null;
   longitude: number | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  lensModel: string | null;
+  apertureF: number | null;
+  shutterSpeedSec: number | null;
+  iso: number | null;
+  focalLengthMm: number | null;
+  flash: string | null;
+  orientation: string | null;
+  exposureProgram: string | null;
+  whiteBalance: string | null;
   createdAt: string;
   thumbnailUrl: string | null;
   previewUrl: string | null;

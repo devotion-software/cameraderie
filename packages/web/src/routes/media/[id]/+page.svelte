@@ -3,7 +3,14 @@
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
-  import { formatBytes, formatDate, formatDuration } from '$lib/format';
+  import {
+    formatBytes,
+    formatDate,
+    formatDuration,
+    formatAperture,
+    formatShutterSpeed,
+    formatFocalLength,
+  } from '$lib/format';
   import { downloadOne, QUALITY_OPTIONS, VIDEO_QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
@@ -23,6 +30,26 @@
   let showDownloadMenu = $state(false);
   let downloadQuality = $state<DownloadQuality>('original');
   const qualityOptions = $derived(item?.kind === 'video' ? VIDEO_QUALITY_OPTIONS : QUALITY_OPTIONS);
+
+  // Camera models sometimes already include the make (e.g. "Canon EOS R5"),
+  // so only prefix it when the model doesn't already start with it.
+  const cameraLabel = $derived.by(() => {
+    const make = item?.cameraMake ?? null;
+    const model = item?.cameraModel ?? null;
+    if (make && model) return model.startsWith(make) ? model : `${make} ${model}`;
+    return make ?? model;
+  });
+
+  // Exposure settings condensed onto one line, e.g. "f/2.8 · 1/250 s · ISO 400 · 50mm".
+  const settingsLabel = $derived.by(() => {
+    const parts = [
+      item ? formatAperture(item.apertureF) : null,
+      item ? formatShutterSpeed(item.shutterSpeedSec) : null,
+      item?.iso ? `ISO ${item.iso}` : null,
+      item ? formatFocalLength(item.focalLengthMm) : null,
+    ].filter((p): p is string => !!p);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  });
 
   // The preview/thumbnail URL can take a moment to actually download even once
   // the derivative is marked 'ready' — track that separately so we can hold a
@@ -336,6 +363,30 @@
       {#if item.latitude != null && item.longitude != null}
         <dt>Location</dt>
         <dd>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</dd>
+      {/if}
+      {#if cameraLabel}
+        <dt>Camera</dt>
+        <dd>{cameraLabel}</dd>
+      {/if}
+      {#if item.lensModel}
+        <dt>Lens</dt>
+        <dd>{item.lensModel}</dd>
+      {/if}
+      {#if settingsLabel}
+        <dt>Settings</dt>
+        <dd>{settingsLabel}</dd>
+      {/if}
+      {#if item.exposureProgram}
+        <dt>Exposure program</dt>
+        <dd>{item.exposureProgram}</dd>
+      {/if}
+      {#if item.whiteBalance}
+        <dt>White balance</dt>
+        <dd>{item.whiteBalance}</dd>
+      {/if}
+      {#if item.flash}
+        <dt>Flash</dt>
+        <dd>{item.flash}</dd>
       {/if}
     </dl>
     {#if item.latitude != null && item.longitude != null}

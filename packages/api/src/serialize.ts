@@ -18,6 +18,17 @@ export interface MediaDto {
   capturedAt: string | null;
   latitude: number | null;
   longitude: number | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  lensModel: string | null;
+  apertureF: number | null;
+  shutterSpeedSec: number | null;
+  iso: number | null;
+  focalLengthMm: number | null;
+  flash: string | null;
+  orientation: string | null;
+  exposureProgram: string | null;
+  whiteBalance: string | null;
   createdAt: string;
   /** Short-lived presigned URLs; null until the derivative is ready. */
   thumbnailUrl: string | null;
@@ -57,6 +68,17 @@ export async function serializeMedia(
     capturedAt: row.capturedAt ? row.capturedAt.toISOString() : null,
     latitude: row.latitude,
     longitude: row.longitude,
+    cameraMake: row.cameraMake,
+    cameraModel: row.cameraModel,
+    lensModel: row.lensModel,
+    apertureF: row.apertureF,
+    shutterSpeedSec: row.shutterSpeedSec,
+    iso: row.iso,
+    focalLengthMm: row.focalLengthMm,
+    flash: row.flash,
+    orientation: row.orientation,
+    exposureProgram: row.exposureProgram,
+    whiteBalance: row.whiteBalance,
     createdAt: row.createdAt.toISOString(),
     thumbnailUrl,
     previewUrl,

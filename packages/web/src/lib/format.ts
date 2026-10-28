@@ -25,3 +25,22 @@ export function formatDuration(ms: number | null): string | null {
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+/** "f/2.8" — trims trailing zeros (f/2 rather than f/2.0). */
+export function formatAperture(fNumber: number | null): string | null {
+  if (fNumber == null) return null;
+  return `f/${Number(fNumber.toFixed(1)).toString()}`;
+}
+
+/** "1/250 s" for fast exposures, "2.5 s" for slow ones. */
+export function formatShutterSpeed(seconds: number | null): string | null {
+  if (seconds == null || seconds <= 0) return null;
+  if (seconds < 1) return `1/${Math.round(1 / seconds)} s`;
+  return `${Number(seconds.toFixed(1))} s`;
+}
+
+/** "50mm" — trims trailing zeros. */
+export function formatFocalLength(mm: number | null): string | null {
+  if (mm == null) return null;
+  return `${Number(mm.toFixed(1))}mm`;
+}
