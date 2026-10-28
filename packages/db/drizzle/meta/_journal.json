@@ -78,6 +78,13 @@
       "when": 1793187472226,
       "tag": "0010_natural_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1793188080479,
+      "tag": "0011_fuzzy_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

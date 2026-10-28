@@ -16,6 +16,8 @@ export interface MediaDto {
   height: number | null;
   durationMs: number | null;
   capturedAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
   /** Short-lived presigned URLs; null until the derivative is ready. */
   thumbnailUrl: string | null;
@@ -53,6 +55,8 @@ export async function serializeMedia(
     height: row.height,
     durationMs: row.durationMs,
     capturedAt: row.capturedAt ? row.capturedAt.toISOString() : null,
+    latitude: row.latitude,
+    longitude: row.longitude,
     createdAt: row.createdAt.toISOString(),
     thumbnailUrl,
     previewUrl,

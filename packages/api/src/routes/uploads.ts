@@ -78,6 +78,8 @@ export default async function uploadRoutes(app: FastifyInstance) {
         objectKey: key,
         r2UploadId: multipart.uploadId,
         capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
+        latitude: body.latitude ?? null,
+        longitude: body.longitude ?? null,
       });
 
       const response: BeginUploadResponse = {

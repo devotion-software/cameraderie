@@ -69,6 +69,9 @@ export const beginUploadBody = z.object({
   checksumSha256: sha256Hex,
   /** Optional capture time from EXIF, ISO 8601, for feed ordering. */
   capturedAt: z.string().datetime().optional(),
+  /** Optional GPS coordinates from EXIF, for the group/image map views. */
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
 });
 export type BeginUploadBody = z.infer<typeof beginUploadBody>;
 

@@ -1,6 +1,19 @@
 import type { BeginUploadResponse, PresignedPart, UploadStatusResponse } from '@cameraderie/shared';
 import { api, ApiError } from './api';
 
+/** Best-effort GPS read from EXIF — never blocks the upload if it fails. */
+async function readGps(file: File): Promise<{ latitude: number; longitude: number } | null> {
+  if (!file.type.startsWith('image/')) return null;
+  try {
+    const exifr = await import('exifr');
+    const gps = await exifr.gps(file);
+    if (!gps || typeof gps.latitude !== 'number' || typeof gps.longitude !== 'number') return null;
+    return { latitude: gps.latitude, longitude: gps.longitude };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Compute the SHA-256 of a file on-device so the server can prove end-to-end
  * integrity after the multipart upload completes.
@@ -32,7 +45,7 @@ export async function uploadFile(
   file: File,
   onProgress?: (fraction: number) => void,
 ): Promise<UploadHandle> {
-  const checksumSha256 = await sha256Hex(file);
+  const [checksumSha256, gps] = await Promise.all([sha256Hex(file), readGps(file)]);
 
   const begin = await api.post<BeginUploadResponse>('/media/uploads', {
     groupId,
@@ -40,6 +53,8 @@ export async function uploadFile(
     sizeBytes: file.size,
     mimeType: file.type || undefined,
     checksumSha256,
+    latitude: gps?.latitude,
+    longitude: gps?.longitude,
   });
 
   const partSize = begin.partSizeBytes;

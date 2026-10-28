@@ -3,6 +3,7 @@ import {
   type AnyMySqlColumn,
   bigint,
   boolean,
+  double,
   index,
   int,
   json,
@@ -242,6 +243,9 @@ export const media = mysqlTable(
     height: int('height'),
     durationMs: int('duration_ms'),
     capturedAt: timestamp('captured_at'),
+    /** GPS coordinates read from EXIF client-side at upload time, if present. */
+    latitude: double('latitude'),
+    longitude: double('longitude'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
   },

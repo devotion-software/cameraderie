@@ -12,12 +12,15 @@
   "dependencies": {
     "@better-auth/passkey": "^1.7.14",
     "@cameraderie/shared": "workspace:*",
-    "better-auth": "^1.7.7"
+    "better-auth": "^1.7.7",
+    "exifr": "^7.1.3",
+    "leaflet": "^1.9.4"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/kit": "^2.15.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@types/leaflet": "^1.9.14",
     "svelte": "^5.16.0",
     "svelte-check": "^4.1.1",
     "typescript": "^5.7.3",

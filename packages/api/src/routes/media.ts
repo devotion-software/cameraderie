@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Readable } from 'node:stream';
 import archiver from 'archiver';
 import sharp from 'sharp';
-import { and, asc, desc, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import { derivatives, favourites, media, user } from '@cameraderie/db';
 import {
   downloadZipBody,
@@ -67,6 +67,32 @@ export default async function mediaRoutes(app: FastifyInstance) {
     const items = await decorate(db, page, me.id);
     const nextCursor = hasMore ? page[page.length - 1]!.createdAt.toISOString() : null;
     return { media: items, nextCursor };
+  });
+
+  // All geotagged media in a group, for the map view (members only). Not
+  // paginated — a lightweight projection (no presigned URLs) so plotting a
+  // few thousand pins stays cheap.
+  app.get<{ Params: { id: string } }>('/groups/:id/media/locations', async (req) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id);
+    const rows = await db
+      .select({
+        id: media.id,
+        kind: media.kind,
+        filename: media.filename,
+        latitude: media.latitude,
+        longitude: media.longitude,
+      })
+      .from(media)
+      .where(
+        and(
+          eq(media.groupId, req.params.id),
+          ne(media.state, 'quarantined'),
+          isNotNull(media.latitude),
+          isNotNull(media.longitude),
+        ),
+      );
+    return { media: rows };
   });
 
   // Media detail (members only).
