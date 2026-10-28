@@ -7,6 +7,7 @@
   import { downloadOne, QUALITY_OPTIONS, VIDEO_QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
+  import Avatar from '$lib/components/Avatar.svelte';
 
   const session = useSession();
   const mediaId = $derived(page.params.id);
@@ -129,6 +130,13 @@
     {/if}
   </div>
 
+  {#if item.uploaderName}
+    <div class="uploader">
+      <Avatar name={item.uploaderName} src={item.uploaderAvatarUrl} size={24} />
+      <span class="muted">Uploaded by {item.uploaderName}</span>
+    </div>
+  {/if}
+
   <div class="bar">
     <button class="btn secondary" onclick={toggleFavourite}>
       {item.favourited ? '♥' : '♡'}
@@ -229,6 +237,13 @@
     color: var(--text-dim);
     padding: 60px 20px;
     text-align: center;
+  }
+  .uploader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
   }
   .bar {
     display: flex;

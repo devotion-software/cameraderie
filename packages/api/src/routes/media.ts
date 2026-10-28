@@ -3,7 +3,7 @@ import type { Readable } from 'node:stream';
 import archiver from 'archiver';
 import sharp from 'sharp';
 import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
-import { derivatives, favourites, media } from '@cameraderie/db';
+import { derivatives, favourites, media, user } from '@cameraderie/db';
 import {
   downloadZipBody,
   IMAGE_DOWNLOAD_QUALITY_SPECS,
@@ -12,6 +12,7 @@ import {
 import { getDb } from '../db.js';
 import { requireMembership, requireUser } from '../guards.js';
 import { serializeMedia, type MediaDto } from '../serialize.js';
+import { avatarUrlsFor } from '../avatars.js';
 import { getObjectStream, presignGet } from '../r2.js';
 import { purgeMedia } from '../media-ops.js';
 import { parse } from '../validate.js';
@@ -264,8 +265,9 @@ async function decorate(
 ): Promise<MediaDto[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
+  const uploaderIds = [...new Set(rows.map((r) => r.uploaderId))];
 
-  const [derivs, favCounts, myFavs] = await Promise.all([
+  const [derivs, favCounts, myFavs, uploaderRows] = await Promise.all([
     db.select().from(derivatives).where(inArray(derivatives.mediaId, ids)),
     db
       .select({ mediaId: favourites.mediaId, count: sql<number>`count(*)` })
@@ -276,6 +278,15 @@ async function decorate(
       .select({ mediaId: favourites.mediaId })
       .from(favourites)
       .where(and(inArray(favourites.mediaId, ids), eq(favourites.userId, userId))),
+    db
+      .select({
+        userId: user.id,
+        name: user.name,
+        image: user.image,
+        avatarObjectKey: user.avatarObjectKey,
+      })
+      .from(user)
+      .where(inArray(user.id, uploaderIds)),
   ]);
 
   const derivsByMedia = new Map<string, (typeof derivatives.$inferSelect)[]>();
@@ -286,6 +297,8 @@ async function decorate(
   }
   const countByMedia = new Map(favCounts.map((c) => [c.mediaId, Number(c.count)]));
   const favouritedSet = new Set(myFavs.map((f) => f.mediaId));
+  const uploaderAvatars = await avatarUrlsFor(uploaderRows);
+  const uploaderNames = new Map(uploaderRows.map((u) => [u.userId, u.name]));
 
   return Promise.all(
     rows.map((row) =>
@@ -294,6 +307,10 @@ async function decorate(
         derivsByMedia.get(row.id) ?? [],
         countByMedia.get(row.id) ?? 0,
         favouritedSet.has(row.id),
+        {
+          name: uploaderNames.get(row.uploaderId) ?? null,
+          avatarUrl: uploaderAvatars[row.uploaderId] ?? null,
+        },
       ),
     ),
   );

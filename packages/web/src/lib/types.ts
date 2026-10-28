@@ -19,6 +19,8 @@ export interface MediaItem {
   id: string;
   groupId: string;
   uploaderId: string;
+  uploaderName: string | null;
+  uploaderAvatarUrl: string | null;
   kind: 'image' | 'raw' | 'video';
   state: 'pending' | 'uploading' | 'processing' | 'ready' | 'failed';
   filename: string;

@@ -5,6 +5,8 @@ export interface MediaDto {
   id: string;
   groupId: string;
   uploaderId: string;
+  uploaderName: string | null;
+  uploaderAvatarUrl: string | null;
   kind: Media['kind'];
   state: Media['state'];
   filename: string;
@@ -28,6 +30,7 @@ export async function serializeMedia(
   derivatives: Derivative[],
   favouriteCount: number,
   favourited: boolean,
+  uploader?: { name: string | null; avatarUrl: string | null },
 ): Promise<MediaDto> {
   const thumb = derivatives.find((d) => d.kind === 'thumbnail' && d.state === 'ready');
   const preview = derivatives.find((d) => d.kind === 'preview' && d.state === 'ready');
@@ -39,6 +42,8 @@ export async function serializeMedia(
     id: row.id,
     groupId: row.groupId,
     uploaderId: row.uploaderId,
+    uploaderName: uploader?.name ?? null,
+    uploaderAvatarUrl: uploader?.avatarUrl ?? null,
     kind: row.kind,
     state: row.state,
     filename: row.filename,
