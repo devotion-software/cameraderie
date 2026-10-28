@@ -22,7 +22,9 @@ export default async function invitesRoutes(app: FastifyInstance) {
       const body = parse(createInviteBody, req.body ?? {});
       const id = newId();
       const code = newInviteCode();
-      const maxUses = body.maxUses ?? null;
+      // Email-targeted invites are always single-use; the max-uses field only
+      // applies to general shareable links (no email).
+      const maxUses = body.email ? 1 : (body.maxUses ?? null);
       const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
       const createdAt = new Date();
       await db.insert(invites).values({
