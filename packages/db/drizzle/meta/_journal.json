@@ -120,6 +120,13 @@
       "when": 1793196755530,
       "tag": "0016_perfect_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1793222881104,
+      "tag": "0017_cold_arclight",
+      "breakpoints": true
     }
   ]
 }

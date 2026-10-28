@@ -1,0 +1,1 @@
+ALTER TABLE `media` MODIFY COLUMN `r2_upload_id` varchar(1024);

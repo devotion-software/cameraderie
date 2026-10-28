@@ -245,8 +245,12 @@ export const media = mysqlTable(
     checksumSha256: varchar('checksum_sha256', { length: 64 }).notNull(),
     /** R2 key of the original. */
     objectKey: varchar('object_key', { length: 512 }).notNull(),
-    /** In-flight R2 multipart upload id (null once completed/aborted). */
-    r2UploadId: varchar('r2_upload_id', { length: 255 }),
+    /**
+     * In-flight R2 multipart upload id (null once completed/aborted). R2's ids
+     * are opaque and can exceed 255 chars (Garage's are short hex, so local dev
+     * never hits this).
+     */
+    r2UploadId: varchar('r2_upload_id', { length: 1024 }),
     width: int('width'),
     height: int('height'),
     durationMs: int('duration_ms'),
