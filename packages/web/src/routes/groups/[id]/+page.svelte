@@ -10,6 +10,7 @@
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
   import LeafletMap from '$lib/components/LeafletMap.svelte';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
   const groupId = $derived(page.params.id as string);
@@ -172,6 +173,11 @@
 
   const amGroupAdmin = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
   const canManageCover = $derived(amGroupAdmin);
+  const myUserId = $derived($session.data?.user?.id);
+  // Matches the API's own-upload-or-owner rule (see routes/media.ts).
+  function canDeleteMedia(m: MediaItem): boolean {
+    return m.uploaderId === myUserId || group?.myRole === 'owner';
+  }
 
   let settingCover = $state<string | null>(null);
   async function setCover(mediaId: string, e?: MouseEvent) {
@@ -197,8 +203,12 @@
   }
 
   let contextMenu = $state<{ x: number; y: number; mediaId: string } | null>(null);
+  const contextMenuItem = $derived(
+    contextMenu ? (items.find((i) => i.id === contextMenu!.mediaId) ?? null) : null,
+  );
   function onTileContextMenu(mediaId: string, e: MouseEvent) {
-    if (!canManageCover) return;
+    const m = items.find((i) => i.id === mediaId);
+    if (!canManageCover && !(m && canDeleteMedia(m))) return;
     e.preventDefault();
     contextMenu = { x: e.clientX, y: e.clientY, mediaId };
   }
@@ -209,6 +219,45 @@
     const mediaId = contextMenu?.mediaId;
     closeContextMenu();
     if (mediaId) await setCover(mediaId);
+  }
+
+  async function deleteMedia(mediaIds: string[]): Promise<void> {
+    if (mediaIds.length === 0) return;
+    const ok = await confirmDialog({
+      title: mediaIds.length === 1 ? 'Delete permanently' : `Delete ${mediaIds.length} items`,
+      message:
+        mediaIds.length === 1
+          ? 'Delete this permanently? This removes the original too.'
+          : `Delete ${mediaIds.length} items permanently? This removes the originals too.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    const deleted = new Set<string>();
+    for (const id of mediaIds) {
+      try {
+        await api.del(`/media/${id}`);
+        deleted.add(id);
+      } catch (err) {
+        error = err instanceof Error ? err.message : 'Failed to delete';
+      }
+    }
+    items = items.filter((i) => !deleted.has(i.id));
+    if (deleted.size > 0 && selected.size > 0) {
+      const next = new Set(selected);
+      for (const id of deleted) next.delete(id);
+      selected = next;
+    }
+  }
+
+  async function deleteFromMenu() {
+    const mediaId = contextMenu?.mediaId;
+    closeContextMenu();
+    if (mediaId) await deleteMedia([mediaId]);
+  }
+
+  async function deleteSelected() {
+    await deleteMedia([...selected]);
   }
 
   let selectMode = $state(false);
@@ -488,6 +537,9 @@
     <button class="btn ghost" onclick={clearSelection} disabled={selected.size === 0}>
       Clear
     </button>
+    <button class="btn danger" onclick={deleteSelected} disabled={selected.size === 0}>
+      Delete
+    </button>
     <div class="download-wrap">
       <button class="btn" onclick={onDownloadClick} disabled={selected.size === 0 || downloading}>
         {downloading ? 'Downloading…' : 'Download'}
@@ -637,10 +689,15 @@
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
     onclick={(e) => e.stopPropagation()}
   >
-    {#if group?.coverMediaId === contextMenu.mediaId}
-      <span class="context-item disabled">★ Current group cover</span>
-    {:else}
-      <button class="context-item" onclick={setCoverFromMenu}>★ Set as group cover</button>
+    {#if canManageCover}
+      {#if group?.coverMediaId === contextMenu.mediaId}
+        <span class="context-item disabled">★ Current group cover</span>
+      {:else}
+        <button class="context-item" onclick={setCoverFromMenu}>★ Set as group cover</button>
+      {/if}
+    {/if}
+    {#if contextMenuItem && canDeleteMedia(contextMenuItem)}
+      <button class="context-item danger" onclick={deleteFromMenu}>Delete</button>
     {/if}
   </div>
 {/if}
@@ -1053,6 +1110,12 @@
   .context-item.disabled {
     color: var(--text-dim);
     cursor: default;
+  }
+  .context-item.danger {
+    color: var(--danger);
+  }
+  .context-item.danger:hover {
+    background: var(--danger-soft);
   }
   .lightbox {
     position: fixed;
