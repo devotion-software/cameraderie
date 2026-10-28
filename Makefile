@@ -14,7 +14,7 @@ COMPOSE := docker compose
 INFRA   := mariadb redis garage garage-init mailpit
 
 .PHONY: help install up infra stop down clean logs console \
-        dev build build-libs typecheck test lint format \
+        dev dev-host build build-libs typecheck test lint format \
         migrate generate seed db-push reset-db \
         web-dev web-build web-preview \
         ios android-build android-install
@@ -85,6 +85,17 @@ dev: up build-libs ## Start infra, build libs, then run api + worker + web with 
 		bun run dev:api & \
 		bun run dev:worker & \
 		bun run dev:web & \
+		wait
+
+dev-host: up build-libs ## Like `dev`, but binds the web server to the LAN so you can test from a phone
+	$(eval LAN_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null))
+	@if [ -z "$(LAN_IP)" ]; then echo "Could not detect a LAN IP (tried en0/en1)"; exit 1; fi
+	@echo "Open http://$(LAN_IP):5173 on your phone (same Wi-Fi)"
+	@echo "Starting api + worker + web (Ctrl-C stops all)..."
+	@trap 'kill 0' INT TERM; \
+		WEB_URL=http://$(LAN_IP):5173 bun run dev:api & \
+		bun run dev:worker & \
+		PUBLIC_API_URL=/api-proxy bun run --filter='@cameraderie/web' dev -- --host & \
 		wait
 
 build-libs: ## Build the shared + db packages (prereq for running api/worker/web)

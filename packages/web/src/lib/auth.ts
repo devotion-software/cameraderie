@@ -9,7 +9,10 @@ import { API_URL } from './config';
  * passwords: sign-in is email OTP, Google, Apple, or a passkey.
  */
 export const authClient = createAuthClient({
-  baseURL: API_URL,
+  // better-auth only auto-appends the default "/api/auth" base path when
+  // baseURL has no path of its own — API_URL has one once it includes the
+  // `/api-proxy` prefix (see config.ts), so spell it out explicitly here.
+  baseURL: `${API_URL}/api/auth`,
   fetchOptions: { credentials: 'include' },
   plugins: [emailOTPClient(), passkeyClient()],
 });
