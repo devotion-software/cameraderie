@@ -246,7 +246,29 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if item}
-  <a href="/groups/{item.groupId}" class="back"><span class="arrow">←</span> Back to group</a>
+  <div class="stage-header">
+    <a href="/groups/{item.groupId}" class="back"><span class="arrow">←</span> Back to group</a>
+    {#if prevId || nextId}
+      <div class="stage-nav-group">
+        <button
+          class="stage-nav prev"
+          onclick={() => goToSibling(prevId)}
+          disabled={!prevId}
+          aria-label="Previous"
+        >
+          ‹
+        </button>
+        <button
+          class="stage-nav next"
+          onclick={() => goToSibling(nextId)}
+          disabled={!nextId}
+          aria-label="Next"
+        >
+          ›
+        </button>
+      </div>
+    {/if}
+  </div>
 
   <div
     class="stage card"
@@ -254,24 +276,6 @@
     style:width={item.kind !== 'video' ? stageWidth : undefined}
     style:aspect-ratio={item.kind !== 'video' && stageRatio ? stageRatio : undefined}
   >
-    {#if prevId}
-      <button
-        class="stage-nav prev"
-        onclick={() => goToSibling(prevId)}
-        aria-label="Previous"
-      >
-        ‹
-      </button>
-    {/if}
-    {#if nextId}
-      <button
-        class="stage-nav next"
-        onclick={() => goToSibling(nextId)}
-        aria-label="Next"
-      >
-        ›
-      </button>
-    {/if}
     {#if item.state === 'ready' && item.previewUrl}
       {#if !mediaLoaded}
         <div class="stage-loader"><span class="spinner"></span></div>
@@ -456,30 +460,46 @@
   .stage video.hidden {
     display: none;
   }
+  .stage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .stage-header .back {
+    margin-bottom: 0;
+  }
+  .stage-nav-group {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
   .stage-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 1;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    border: none;
-    background: rgb(255 255 255 / 0.15);
-    color: #fff;
-    font-size: 22px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 18px;
     line-height: 1;
     cursor: pointer;
-    transition: background-color var(--dur-fast) ease;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    transition:
+      background-color var(--dur-fast) ease,
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
   }
-  .stage-nav:hover {
-    background: rgb(255 255 255 / 0.28);
+  .stage-nav:hover:not(:disabled) {
+    background: var(--surface-strong);
+    color: var(--text);
+    border-color: var(--border-strong);
   }
-  .stage-nav.prev {
-    left: 12px;
-  }
-  .stage-nav.next {
-    right: 12px;
+  .stage-nav:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
   .stage-loader {
     position: absolute;
