@@ -19,6 +19,11 @@ export const setGroupCoverBody = z.object({
 });
 export type SetGroupCoverBody = z.infer<typeof setGroupCoverBody>;
 
+export const updateGroupBody = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+export type UpdateGroupBody = z.infer<typeof updateGroupBody>;
+
 export const createInviteBody = z.object({
   /**
    * Optional: restrict this invite to one email address. That email also

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { derivatives, groups, media, memberships, user } from '@cameraderie/db';
-import { createGroupBody, setGroupCoverBody } from '@cameraderie/shared';
+import { createGroupBody, setGroupCoverBody, updateGroupBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { newId } from '../ids.js';
 import { presignGet } from '../r2.js';
@@ -117,6 +117,17 @@ export default async function groupsRoutes(app: FastifyInstance) {
         ...stats,
       },
     };
+  });
+
+  // Rename a group (admin/owner only).
+  app.patch<{ Params: { id: string } }>('/groups/:id', async (req) => {
+    const me = await requireUser(req);
+    await requireMembership(req.params.id, me.id, 'admin');
+    const body = parse(updateGroupBody, req.body);
+    await db.update(groups).set({ name: body.name }).where(eq(groups.id, req.params.id));
+    const [group] = await db.select().from(groups).where(eq(groups.id, req.params.id)).limit(1);
+    if (!group) throw notFound('Group not found');
+    return { group };
   });
 
   // Set the group's cover photo to one of its own media items (admin/owner only).
