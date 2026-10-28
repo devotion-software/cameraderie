@@ -210,9 +210,35 @@
     selected = next;
   }
 
-  function onTileClick(mediaId: string, e: MouseEvent) {
-    if (!selectMode) return;
-    toggleSelected(mediaId, e);
+  let lightboxIndex = $state<number | null>(null);
+  const lightboxItem = $derived(lightboxIndex !== null ? (items[lightboxIndex] ?? null) : null);
+
+  function onTileClick(mediaId: string, index: number, e: MouseEvent) {
+    if (selectMode) {
+      toggleSelected(mediaId, e);
+      return;
+    }
+    // Let modifier-clicks / middle-click behave normally (open in new tab etc).
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    lightboxIndex = index;
+  }
+
+  function closeLightbox() {
+    lightboxIndex = null;
+  }
+
+  function lightboxStep(delta: number) {
+    if (lightboxIndex === null) return;
+    const next = lightboxIndex + delta;
+    if (next >= 0 && next < items.length) lightboxIndex = next;
+  }
+
+  function onLightboxKeydown(e: KeyboardEvent) {
+    if (lightboxIndex === null) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') lightboxStep(1);
+    else if (e.key === 'ArrowLeft') lightboxStep(-1);
   }
 
   function selectAll() {
@@ -339,6 +365,7 @@
     showDownloadAllMenu = false;
   }}
   onkeydown={(e) => {
+    onLightboxKeydown(e);
     if (e.key !== 'Escape') return;
     closeContextMenu();
     showDownloadMenu = false;
@@ -513,14 +540,14 @@
   </p>
 {:else}
   <div class="grid" class:contain-tiles={tileFit === 'contain'}>
-    {#each items as m (m.id)}
+    {#each items as m, i (m.id)}
       <a
         class="tile"
         class:selected={selected.has(m.id)}
         href="/media/{m.id}"
         title={m.filename}
         oncontextmenu={(e) => onTileContextMenu(m.id, e)}
-        onclick={(e) => onTileClick(m.id, e)}
+        onclick={(e) => onTileClick(m.id, i, e)}
       >
         {#if selectMode}
           <button
@@ -581,6 +608,53 @@
     {:else}
       <button class="context-item" onclick={setCoverFromMenu}>★ Set as group cover</button>
     {/if}
+  </div>
+{/if}
+
+{#if lightboxItem}
+  <div class="lightbox" role="dialog" aria-modal="true" tabindex="-1" onclick={closeLightbox}>
+    <button class="lightbox-close" onclick={closeLightbox} aria-label="Close">✕</button>
+    {#if lightboxIndex !== null && lightboxIndex > 0}
+      <button
+        class="lightbox-nav prev"
+        onclick={(e) => {
+          e.stopPropagation();
+          lightboxStep(-1);
+        }}
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+    {/if}
+    {#if lightboxIndex !== null && lightboxIndex < items.length - 1}
+      <button
+        class="lightbox-nav next"
+        onclick={(e) => {
+          e.stopPropagation();
+          lightboxStep(1);
+        }}
+        aria-label="Next"
+      >
+        ›
+      </button>
+    {/if}
+    <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
+      {#if lightboxItem.kind === 'video'}
+        {#if lightboxItem.previewUrl}
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video src={lightboxItem.previewUrl} controls playsinline autoplay></video>
+        {:else if lightboxItem.thumbnailUrl}
+          <img src={lightboxItem.thumbnailUrl} alt={lightboxItem.filename} class="blurry" />
+        {/if}
+      {:else if lightboxItem.previewUrl}
+        <img src={lightboxItem.previewUrl} alt={lightboxItem.filename} />
+      {:else if lightboxItem.thumbnailUrl}
+        <img src={lightboxItem.thumbnailUrl} alt={lightboxItem.filename} class="blurry" />
+      {:else}
+        <div class="placeholder"><span class="spinner"></span> processing</div>
+      {/if}
+      <a class="lightbox-details" href="/media/{lightboxItem.id}">Open full page ›</a>
+    </div>
   </div>
 {/if}
 
@@ -913,5 +987,76 @@
   .context-item.disabled {
     color: var(--text-dim);
     cursor: default;
+  }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(0 0 0 / 0.85);
+  }
+  .lightbox-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: min(92vw, 1100px);
+    max-height: 90vh;
+  }
+  .lightbox-content img,
+  .lightbox-content video {
+    max-width: min(92vw, 1100px);
+    max-height: 80vh;
+    border-radius: var(--radius-sm);
+    display: block;
+  }
+  .lightbox-content img.blurry {
+    filter: blur(8px);
+    opacity: 0.7;
+  }
+  .lightbox-details {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: rgb(255 255 255 / 0.12);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .lightbox-close:hover {
+    background: rgb(255 255 255 / 0.22);
+  }
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgb(255 255 255 / 0.12);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .lightbox-nav:hover {
+    background: rgb(255 255 255 / 0.22);
+  }
+  .lightbox-nav.prev {
+    left: 20px;
+  }
+  .lightbox-nav.next {
+    right: 20px;
   }
 </style>
