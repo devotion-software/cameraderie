@@ -2,7 +2,7 @@
   import '../app.css';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { fade } from 'svelte/transition';
+  import { fade, slide } from 'svelte/transition';
   import { useSession, signOut } from '$lib/auth';
   import { api } from '$lib/api';
   import type { Profile } from '$lib/types';
@@ -14,6 +14,13 @@
 
   let avatarUrl = $state<string | null>(null);
   let avatarLoadedFor: string | null = null;
+  let mobileMenuOpen = $state(false);
+
+  $effect(() => {
+    // Close the mobile menu whenever the route changes.
+    page.url.pathname;
+    mobileMenuOpen = false;
+  });
 
   $effect(() => {
     const id = $session.data?.user?.id;
@@ -54,7 +61,13 @@
     await signOut();
     goto('/login');
   }
+
+  function onMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') mobileMenuOpen = false;
+  }
 </script>
+
+<svelte:window onkeydown={onMenuKeydown} />
 
 <header class="topbar">
   <div class="topbar-inner glass">
@@ -96,10 +109,69 @@
         <span class="account-name">{$session.data.user.name}</span>
       </div>
       <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
+      <button
+        class="burger"
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={mobileMenuOpen}
+        aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+        onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          {#if mobileMenuOpen}
+            <path
+              d="M4 4l10 10M14 4L4 14"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          {:else}
+            <path
+              d="M2 4.5h14M2 9h14M2 13.5h14"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          {/if}
+        </svg>
+      </button>
     {:else}
       <a href="/login" class="btn secondary">Sign in</a>
     {/if}
   </div>
+  {#if mobileMenuOpen && $session.data?.user}
+    <nav class="mobile-menu glass" transition:slide={{ duration: 160 }}>
+      <a href="/groups" class="navlink" class:active={page.url.pathname.startsWith('/groups')}>
+        Groups
+      </a>
+      {#if ($session.data.user as { role?: string }).role === 'admin'}
+        <a
+          href="/admin/reports"
+          class="navlink"
+          class:active={page.url.pathname.startsWith('/admin/reports')}
+        >
+          Reports
+        </a>
+        <a
+          href="/admin/users"
+          class="navlink"
+          class:active={page.url.pathname.startsWith('/admin/users')}
+        >
+          Users
+        </a>
+      {/if}
+      <a href="/settings" class="navlink" class:active={page.url.pathname.startsWith('/settings')}>
+        Settings
+      </a>
+      <div class="mobile-menu-footer">
+        <div class="account">
+          <Avatar name={$session.data.user.name} src={avatarUrl} size={28} />
+          <span class="account-name">{$session.data.user.name}</span>
+        </div>
+        <button class="btn ghost" onclick={handleSignOut}>Sign out</button>
+      </div>
+    </nav>
+  {/if}
 </header>
 
 <main class="container">
@@ -202,15 +274,56 @@
     color: var(--text-dim);
     cursor: default;
   }
+  .burger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-strong);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .mobile-menu {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    max-width: var(--maxw);
+    margin: 8px auto 0;
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+  }
+  .mobile-menu .navlink {
+    padding: 10px 0;
+  }
+  .mobile-menu-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .mobile-menu-footer .account {
+    margin-left: 0;
+  }
+  .mobile-menu-footer .account-name {
+    display: inline;
+  }
   @media (max-width: 680px) {
-    .navlinks {
-      gap: 14px;
-    }
-    .account-name {
+    .navlinks,
+    .topbar-inner > .account,
+    .topbar-inner > .btn.ghost {
       display: none;
     }
-    .account {
-      padding: 5px;
+    .burger {
+      display: inline-flex;
+    }
+    .mobile-menu {
+      display: flex;
     }
   }
 </style>
