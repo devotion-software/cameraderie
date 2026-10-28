@@ -22,6 +22,7 @@
   let inviteUrl = $state('');
   let showInvite = $state(false);
   let inviteEmail = $state('');
+  let inviteMaxUses = $state('');
   let invitingBusy = $state(false);
 
   $effect(() => {
@@ -64,12 +65,16 @@
     invitingBusy = true;
     error = '';
     try {
+      const email = inviteEmail.trim() || undefined;
+      const maxUses = !email && inviteMaxUses.trim() ? Number(inviteMaxUses) : undefined;
       const res = await api.post<{ invite: Invite }>(`/groups/${groupId}/invites`, {
-        email: inviteEmail.trim() || undefined,
+        email,
+        maxUses,
       });
       inviteUrl = `${location.origin}/invite/${res.invite.code}`;
       invites = [...invites, res.invite];
       inviteEmail = '';
+      inviteMaxUses = '';
       showInvite = false;
       await navigator.clipboard?.writeText(inviteUrl).catch(() => {});
     } catch (err) {
@@ -144,6 +149,16 @@
       placeholder="Email to invite (optional — leave blank for a shareable link)"
       bind:value={inviteEmail}
     />
+    {#if !inviteEmail.trim()}
+      <input
+        class="input max-uses"
+        type="number"
+        min="1"
+        max="1000"
+        placeholder="Max uses (optional)"
+        bind:value={inviteMaxUses}
+      />
+    {/if}
     <button class="btn" type="submit" disabled={invitingBusy}>
       {invitingBusy ? 'Creating…' : 'Create invite'}
     </button>
@@ -254,6 +269,9 @@
   }
   .invite-form .input {
     flex: 1;
+  }
+  .invite-form .max-uses {
+    flex: 0 0 140px;
   }
   .invite code {
     color: var(--accent);
