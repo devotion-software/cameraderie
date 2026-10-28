@@ -32,6 +32,38 @@
   );
   const stageWidth = $derived(stageRatio ? `min(100%, calc(70vh * ${stageRatio}))` : undefined);
 
+  // Click-to-magnify: toggles a cursor-following zoomed lens over the photo so
+  // you can inspect fine detail without leaving the page.
+  const LENS_SIZE = 180;
+  const ZOOM = 2.5;
+  let magnifierOn = $state(false);
+  let magnifierHover = $state(false);
+  let lensStyle = $state('');
+  let imgEl = $state<HTMLImageElement | null>(null);
+
+  function toggleMagnifier() {
+    if (item?.kind === 'video') return;
+    magnifierOn = !magnifierOn;
+    magnifierHover = false;
+  }
+
+  function onImageMouseMove(e: MouseEvent) {
+    if (!magnifierOn || !imgEl || !item?.previewUrl) return;
+    const rect = imgEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    magnifierHover = true;
+    const bgW = rect.width * ZOOM;
+    const bgH = rect.height * ZOOM;
+    const bgX = -(x * ZOOM - LENS_SIZE / 2);
+    const bgY = -(y * ZOOM - LENS_SIZE / 2);
+    lensStyle = `left:${x - LENS_SIZE / 2}px; top:${y - LENS_SIZE / 2}px; background-image:url(${item.previewUrl}); background-size:${bgW}px ${bgH}px; background-position:${bgX}px ${bgY}px;`;
+  }
+
+  function onImageMouseLeave() {
+    magnifierHover = false;
+  }
+
   $effect(() => {
     if ($session.isPending) return;
     if (!$session.data?.user) {
@@ -146,11 +178,19 @@
         ></video>
       {:else}
         <img
+          bind:this={imgEl}
           src={item.previewUrl}
           alt={item.filename}
           class:hidden={!mediaLoaded}
+          class:magnifying={magnifierOn}
           onload={() => (mediaLoaded = true)}
+          onclick={toggleMagnifier}
+          onmousemove={onImageMouseMove}
+          onmouseleave={onImageMouseLeave}
         />
+        {#if magnifierOn && magnifierHover}
+          <div class="lens" style={lensStyle}></div>
+        {/if}
       {/if}
     {:else if item.state === 'failed'}
       <div class="placeholder">Preview could not be generated. The original is still safe.</div>
@@ -275,6 +315,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  .stage img:not(.hidden) {
+    cursor: zoom-in;
+  }
+  .stage img.magnifying {
+    cursor: crosshair;
+  }
+  .lens {
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.6);
+    pointer-events: none;
+    background-repeat: no-repeat;
   }
   .spinner {
     width: 28px;
