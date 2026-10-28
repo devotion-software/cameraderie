@@ -78,13 +78,14 @@ export default async function groupsRoutes(app: FastifyInstance) {
   // Group detail (members only).
   app.get<{ Params: { id: string } }>('/groups/:id', async (req) => {
     const me = await requireUser(req);
-    await requireMembership(req.params.id, me.id);
+    const membership = await requireMembership(req.params.id, me.id);
     const [group] = await db.select().from(groups).where(eq(groups.id, req.params.id)).limit(1);
     if (!group) throw notFound('Group not found');
     const covers = await coverThumbnailUrls([group.coverMediaId ?? '']);
     return {
       group: {
         ...group,
+        myRole: membership.role,
         coverThumbnailUrl: group.coverMediaId ? (covers[group.coverMediaId] ?? null) : null,
       },
     };

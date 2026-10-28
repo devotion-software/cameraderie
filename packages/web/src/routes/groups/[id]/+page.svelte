@@ -129,9 +129,9 @@
   const canManageCover = $derived(amGroupAdmin);
 
   let settingCover = $state<string | null>(null);
-  async function setCover(mediaId: string, e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  async function setCover(mediaId: string, e?: MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (!group) return;
     settingCover = mediaId;
     try {
@@ -150,7 +150,27 @@
       settingCover = null;
     }
   }
+
+  let contextMenu = $state<{ x: number; y: number; mediaId: string } | null>(null);
+  function onTileContextMenu(mediaId: string, e: MouseEvent) {
+    if (!canManageCover) return;
+    e.preventDefault();
+    contextMenu = { x: e.clientX, y: e.clientY, mediaId };
+  }
+  function closeContextMenu() {
+    contextMenu = null;
+  }
+  async function setCoverFromMenu() {
+    const mediaId = contextMenu?.mediaId;
+    closeContextMenu();
+    if (mediaId) await setCover(mediaId);
+  }
 </script>
+
+<svelte:window
+  onclick={closeContextMenu}
+  onkeydown={(e) => e.key === 'Escape' && closeContextMenu()}
+/>
 
 {#if group}
   <div class="head">
@@ -232,7 +252,12 @@
 {:else}
   <div class="grid">
     {#each items as m (m.id)}
-      <a class="tile" href="/media/{m.id}" title={m.filename}>
+      <a
+        class="tile"
+        href="/media/{m.id}"
+        title={m.filename}
+        oncontextmenu={(e) => onTileContextMenu(m.id, e)}
+      >
         {#if m.thumbnailUrl}
           <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
         {:else if m.state === 'failed'}
@@ -269,6 +294,20 @@
       <button class="btn secondary" onclick={loadMore}>Load more</button>
     </div>
   {/if}
+{/if}
+
+{#if contextMenu}
+  <div
+    class="context-menu"
+    style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
+    onclick={(e) => e.stopPropagation()}
+  >
+    {#if group?.coverMediaId === contextMenu.mediaId}
+      <span class="context-item disabled">★ Current group cover</span>
+    {:else}
+      <button class="context-item" onclick={setCoverFromMenu}>★ Set as group cover</button>
+    {/if}
+  </div>
 {/if}
 
 <style>
@@ -453,5 +492,35 @@
   .more {
     margin-top: 20px;
     text-align: center;
+  }
+  .context-menu {
+    position: fixed;
+    z-index: 100;
+    min-width: 190px;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 36px -14px hsl(var(--shadow-color) / 0.5);
+  }
+  .context-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    border-radius: calc(var(--radius-sm) - 4px);
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .context-item:not(.disabled):hover {
+    background: var(--surface-2);
+  }
+  .context-item.disabled {
+    color: var(--text-dim);
+    cursor: default;
   }
 </style>
