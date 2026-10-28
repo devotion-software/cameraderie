@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
+import exifr from 'exifr';
 import { eq, sql } from 'drizzle-orm';
 import { derivatives, groups, media, user, type Media } from '@cameraderie/db';
 import {
@@ -112,9 +113,17 @@ export async function processMedia(mediaId: string): Promise<void> {
         ? await processVideo(row, originalPath, workdir)
         : await processImageOrRaw(row, originalPath, workdir, keepMetadata);
 
+    const exif = row.kind === 'video' ? emptyExif() : await extractExif(originalPath);
+
     await db
       .update(media)
-      .set({ state: 'ready', width: dims.width, height: dims.height, durationMs: dims.durationMs })
+      .set({
+        state: 'ready',
+        width: dims.width,
+        height: dims.height,
+        durationMs: dims.durationMs,
+        ...exif,
+      })
       .where(eq(media.id, mediaId));
     console.log(`[worker] media ${mediaId} ready`);
   } finally {
@@ -126,6 +135,78 @@ interface Dims {
   width: number | null;
   height: number | null;
   durationMs: number | null;
+}
+
+interface ExifFields {
+  cameraMake: string | null;
+  cameraModel: string | null;
+  lensModel: string | null;
+  apertureF: number | null;
+  shutterSpeedSec: number | null;
+  iso: number | null;
+  focalLengthMm: number | null;
+  flash: string | null;
+  orientation: string | null;
+  exposureProgram: string | null;
+  whiteBalance: string | null;
+}
+
+function emptyExif(): ExifFields {
+  return {
+    cameraMake: null,
+    cameraModel: null,
+    lensModel: null,
+    apertureF: null,
+    shutterSpeedSec: null,
+    iso: null,
+    focalLengthMm: null,
+    flash: null,
+    orientation: null,
+    exposureProgram: null,
+    whiteBalance: null,
+  };
+}
+
+/** Clamp a string to a max length so it never overflows its DB column. */
+function truncate(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function toNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Best-effort EXIF extraction from the original file (images/RAW only —
+ * videos don't carry these tags). exifr's defaults already translate enum
+ * tags (Flash, Orientation, ExposureProgram, WhiteBalance) into readable
+ * strings and revive rationals (FNumber, ExposureTime, FocalLength) into
+ * plain numbers, so there's little left to do beyond picking fields out and
+ * clamping them to their column widths. Never throws — a photo with no/odd
+ * EXIF just gets an all-null row.
+ */
+async function extractExif(originalPath: string): Promise<ExifFields> {
+  try {
+    const tags = await exifr.parse(originalPath);
+    if (!tags) return emptyExif();
+    return {
+      cameraMake: truncate(tags.Make, 128),
+      cameraModel: truncate(tags.Model, 128),
+      lensModel: truncate(tags.LensModel, 191),
+      apertureF: toNumber(tags.FNumber),
+      shutterSpeedSec: toNumber(tags.ExposureTime),
+      iso: toNumber(tags.ISO),
+      focalLengthMm: toNumber(tags.FocalLength),
+      flash: truncate(tags.Flash, 191),
+      orientation: truncate(tags.Orientation, 64),
+      exposureProgram: truncate(tags.ExposureProgram, 64),
+      whiteBalance: truncate(tags.WhiteBalance, 64),
+    };
+  } catch (err) {
+    console.warn(`[worker] EXIF extraction failed for ${originalPath}`, err);
+    return emptyExif();
+  }
 }
 
 async function processImageOrRaw(
