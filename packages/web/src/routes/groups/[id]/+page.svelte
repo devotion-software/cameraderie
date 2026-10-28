@@ -6,17 +6,26 @@
   import { uploadFile } from '$lib/upload';
   import { formatBytes, formatDuration } from '$lib/format';
   import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
-  import type { Group, MediaItem } from '$lib/types';
+  import type { Group, MediaItem, Member } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
+  import Avatar from '$lib/components/Avatar.svelte';
 
   const session = useSession();
   const groupId = $derived(page.params.id as string);
 
   let group = $state<Group | null>(null);
   let items = $state<MediaItem[]>([]);
+  let members = $state<Member[]>([]);
   let nextCursor = $state<string | null>(null);
   let loading = $state(true);
   let error = $state('');
+
+  const MEMBER_AVATAR_LIMIT = 5;
+  const overflowing = $derived(members.length > MEMBER_AVATAR_LIMIT);
+  const visibleMembers = $derived(
+    members.slice(0, overflowing ? MEMBER_AVATAR_LIMIT - 1 : MEMBER_AVATAR_LIMIT),
+  );
+  const extraMemberCount = $derived(members.length - visibleMembers.length);
 
   let fileInput = $state<HTMLInputElement>();
 
@@ -57,8 +66,12 @@
     loading = true;
     error = '';
     try {
-      const [g] = await Promise.all([api.get<{ group: Group }>(`/groups/${groupId}`)]);
+      const [g, m] = await Promise.all([
+        api.get<{ group: Group }>(`/groups/${groupId}`),
+        api.get<{ members: Member[] }>(`/groups/${groupId}/members`),
+      ]);
       group = g.group;
+      members = m.members;
       await refreshFeed();
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load group';
@@ -317,7 +330,19 @@
     </div>
     <span class="spacer"></span>
     <div class="actions">
-      <a class="btn secondary" href="/groups/{groupId}/members">Members</a>
+      <a class="btn secondary member-link" href="/groups/{groupId}/members">
+        Members
+        {#if visibleMembers.length > 0}
+          <span class="member-avatars">
+            {#each visibleMembers as m (m.userId)}
+              <span class="member-avatar"><Avatar name={m.name} src={m.avatarUrl} size={22} /></span>
+            {/each}
+            {#if extraMemberCount > 0}
+              <span class="member-avatar more">+{extraMemberCount}</span>
+            {/if}
+          </span>
+        {/if}
+      </a>
       {#if items.length > 0}
         <button class="btn secondary" onclick={toggleSelectMode}>
           {selectMode ? 'Cancel' : 'Select'}
@@ -504,6 +529,33 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .member-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .member-avatars {
+    display: flex;
+  }
+  .member-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--surface-1);
+    margin-left: -8px;
+  }
+  .member-avatar:first-child {
+    margin-left: 0;
+  }
+  .member-avatar.more {
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 700;
   }
   .uploads {
     margin-bottom: 16px;
