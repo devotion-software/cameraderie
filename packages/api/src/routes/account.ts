@@ -6,6 +6,7 @@ import {
   avatarKey,
   beginAvatarUploadBody,
   planFromEntitlement,
+  updateUploadDefaultsBody,
 } from '@cameraderie/shared';
 import { getDb } from '../db.js';
 import { requireUser } from '../guards.js';
@@ -22,7 +23,12 @@ export default async function accountRoutes(app: FastifyInstance) {
   app.get('/me', async (req) => {
     const me = await requireUser(req);
     const [row] = await db
-      .select({ avatarObjectKey: user.avatarObjectKey, image: user.image })
+      .select({
+        avatarObjectKey: user.avatarObjectKey,
+        image: user.image,
+        defaultKeepGps: user.defaultKeepGps,
+        defaultKeepCameraExif: user.defaultKeepCameraExif,
+      })
       .from(user)
       .where(eq(user.id, me.id))
       .limit(1);
@@ -37,8 +43,27 @@ export default async function accountRoutes(app: FastifyInstance) {
         plan: me.plan,
         acceptedTermsAt: me.acceptedTermsAt,
         avatarUrl,
+        defaultKeepGps: row?.defaultKeepGps ?? true,
+        defaultKeepCameraExif: row?.defaultKeepCameraExif ?? true,
       },
     };
+  });
+
+  // Remembers the uploader's last choice for what EXIF to keep, so the
+  // upload flow can preselect it next time instead of defaulting cold.
+  app.patch('/me/upload-defaults', async (req) => {
+    const me = await requireUser(req);
+    const body = parse(updateUploadDefaultsBody, req.body);
+    await db
+      .update(user)
+      .set({
+        ...(body.defaultKeepGps !== undefined && { defaultKeepGps: body.defaultKeepGps }),
+        ...(body.defaultKeepCameraExif !== undefined && {
+          defaultKeepCameraExif: body.defaultKeepCameraExif,
+        }),
+      })
+      .where(eq(user.id, me.id));
+    return { ok: true };
   });
 
   // Begin a direct-to-R2 avatar upload: presign a single PUT to a key

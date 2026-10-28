@@ -179,3 +179,10 @@ export const updateUserPermissionsBody = z.object({
   disabled: z.boolean().optional(),
 });
 export type UpdateUserPermissionsBody = z.infer<typeof updateUserPermissionsBody>;
+
+/** Remembered per-user upload preferences, set from the upload flow itself. */
+export const updateUploadDefaultsBody = z.object({
+  defaultKeepGps: z.boolean().optional(),
+  defaultKeepCameraExif: z.boolean().optional(),
+});
+export type UpdateUploadDefaultsBody = z.infer<typeof updateUploadDefaultsBody>;

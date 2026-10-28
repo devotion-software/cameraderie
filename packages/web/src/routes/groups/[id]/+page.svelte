@@ -65,24 +65,33 @@
     localStorage.setItem(TILE_FIT_KEY, next);
   }
 
-  const KEEP_GPS_KEY = 'cameraderie:uploadKeepGps';
-  const KEEP_CAMERA_EXIF_KEY = 'cameraderie:uploadKeepCameraExif';
-  let showUploadOptions = $state(false);
-  let keepGps = $state(true);
-  let keepCameraExif = $state(true);
-  if (typeof localStorage !== 'undefined') {
-    const savedGps = localStorage.getItem(KEEP_GPS_KEY);
-    if (savedGps === 'true' || savedGps === 'false') keepGps = savedGps === 'true';
-    const savedCamera = localStorage.getItem(KEEP_CAMERA_EXIF_KEY);
-    if (savedCamera === 'true' || savedCamera === 'false') keepCameraExif = savedCamera === 'true';
+  // Remembered per-user upload preferences (fetched in load(), below), offered
+  // as the preselected choice each time someone picks files to upload rather
+  // than living behind a permanent header control.
+  let defaultKeepGps = $state(true);
+  let defaultKeepCameraExif = $state(true);
+  let pendingUploadFiles = $state<File[] | null>(null);
+  let pendingKeepGps = $state(true);
+  let pendingKeepCameraExif = $state(true);
+
+  function cancelPendingUpload() {
+    pendingUploadFiles = null;
   }
-  function setKeepGps(next: boolean) {
-    keepGps = next;
-    localStorage.setItem(KEEP_GPS_KEY, String(next));
-  }
-  function setKeepCameraExif(next: boolean) {
-    keepCameraExif = next;
-    localStorage.setItem(KEEP_CAMERA_EXIF_KEY, String(next));
+
+  async function confirmPendingUpload() {
+    const files = pendingUploadFiles;
+    if (!files) return;
+    const keepGps = pendingKeepGps;
+    const keepCameraExif = pendingKeepCameraExif;
+    pendingUploadFiles = null;
+    if (keepGps !== defaultKeepGps || keepCameraExif !== defaultKeepCameraExif) {
+      defaultKeepGps = keepGps;
+      defaultKeepCameraExif = keepCameraExif;
+      api
+        .patch('/me/upload-defaults', { defaultKeepGps: keepGps, defaultKeepCameraExif: keepCameraExif })
+        .catch(() => {});
+    }
+    await startUploads(files, keepGps, keepCameraExif);
   }
 
   const MEMBER_AVATAR_LIMIT = 5;
@@ -131,12 +140,19 @@
     loading = true;
     error = '';
     try {
-      const [g, m] = await Promise.all([
+      const [g, m, me] = await Promise.all([
         api.get<{ group: Group }>(`/groups/${groupId}`),
         api.get<{ members: Member[] }>(`/groups/${groupId}/members`),
+        api
+          .get<{ user: { defaultKeepGps: boolean; defaultKeepCameraExif: boolean } }>('/me')
+          .catch(() => null),
       ]);
       group = g.group;
       members = m.members;
+      if (me) {
+        defaultKeepGps = me.user.defaultKeepGps;
+        defaultKeepCameraExif = me.user.defaultKeepCameraExif;
+      }
       await refreshFeed();
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load group';
@@ -190,10 +206,17 @@
     }
   }
 
-  async function onFiles(e: Event) {
+  function onFiles(e: Event) {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
+    if (files.length === 0) return;
+    pendingKeepGps = defaultKeepGps;
+    pendingKeepCameraExif = defaultKeepCameraExif;
+    pendingUploadFiles = files;
+  }
+
+  async function startUploads(files: File[], keepGps: boolean, keepCameraExif: boolean) {
     for (const file of files) {
       uploads = [...uploads, { name: file.name, fraction: 0 }];
       // Index into the reactive `uploads` array itself (not the plain object
@@ -560,7 +583,6 @@
     closeContextMenu();
     showDownloadMenu = false;
     showDownloadAllMenu = false;
-    showUploadOptions = false;
   }}
   onkeydown={(e) => {
     onLightboxKeydown(e);
@@ -568,9 +590,45 @@
     closeContextMenu();
     showDownloadMenu = false;
     showDownloadAllMenu = false;
-    showUploadOptions = false;
+    if (pendingUploadFiles) cancelPendingUpload();
   }}
 />
+
+{#if pendingUploadFiles}
+  <div
+    class="backdrop"
+    role="presentation"
+    onclick={cancelPendingUpload}
+    transition:fade={{ duration: 150 }}
+  >
+    <div
+      class="dialog card"
+      role="alertdialog"
+      aria-modal="true"
+      aria-label="Upload options"
+      tabindex="-1"
+      onclick={(e) => e.stopPropagation()}
+      transition:scale={{ duration: 150, start: 0.96 }}
+    >
+      <h2>
+        Upload {pendingUploadFiles.length}
+        {pendingUploadFiles.length === 1 ? 'file' : 'files'}
+      </h2>
+      <label class="option-row">
+        <input type="checkbox" bind:checked={pendingKeepGps} />
+        <span>Keep location (GPS)</span>
+      </label>
+      <label class="option-row">
+        <input type="checkbox" bind:checked={pendingKeepCameraExif} />
+        <span>Keep camera &amp; lens details</span>
+      </label>
+      <div class="modal-actions">
+        <button class="btn ghost" onclick={cancelPendingUpload}>Cancel</button>
+        <button class="btn" onclick={confirmPendingUpload}>Upload</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if group}
   <div class="head">
@@ -640,42 +698,6 @@
           {/if}
         </div>
       {/if}
-      <div class="download-wrap">
-        <button
-          class="btn secondary"
-          title="Choose what EXIF metadata to keep"
-          onclick={(e) => {
-            e.stopPropagation();
-            showUploadOptions = !showUploadOptions;
-          }}
-        >
-          EXIF ⚙
-        </button>
-        {#if showUploadOptions}
-          <div
-            class="download-menu"
-            onclick={(e) => e.stopPropagation()}
-            transition:scale={{ duration: 150, start: 0.96 }}
-          >
-            <label class="quality-row">
-              <span class="muted">Keep location (GPS)</span>
-              <input
-                type="checkbox"
-                checked={keepGps}
-                onchange={(e) => setKeepGps(e.currentTarget.checked)}
-              />
-            </label>
-            <label class="quality-row">
-              <span class="muted">Keep camera &amp; lens details</span>
-              <input
-                type="checkbox"
-                checked={keepCameraExif}
-                onchange={(e) => setKeepCameraExif(e.currentTarget.checked)}
-              />
-            </label>
-          </div>
-        {/if}
-      </div>
       <button class="btn" onclick={() => fileInput?.click()}>Upload</button>
       <input
         bind:this={fileInput}
@@ -1037,6 +1059,36 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(0 0 0 / 0.5);
+    padding: 20px;
+  }
+  .dialog {
+    max-width: 380px;
+    width: 100%;
+  }
+  .dialog h2 {
+    margin: 0 0 14px;
+    font-size: 17px;
+  }
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
   }
   .actions .btn.active {
     border-color: var(--accent);

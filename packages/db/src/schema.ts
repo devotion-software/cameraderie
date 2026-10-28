@@ -47,6 +47,10 @@ export const user = mysqlTable('user', {
   canCreateGroups: boolean('can_create_groups').notNull().default(false),
   /** Permission: may invite new members to a group they admin. Site admins bypass this check. */
   canInviteMembers: boolean('can_invite_members').notNull().default(false),
+  /** Remembered upload preference: keep GPS coordinates read from EXIF. */
+  defaultKeepGps: boolean('default_keep_gps').notNull().default(true),
+  /** Remembered upload preference: keep camera/lens/exposure EXIF. */
+  defaultKeepCameraExif: boolean('default_keep_camera_exif').notNull().default(true),
   /** Set by an admin to block sign-in, viewing, uploading, and downloading. Null = active. */
   disabledAt: timestamp('disabled_at'),
   /**
