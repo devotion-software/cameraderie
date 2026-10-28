@@ -422,7 +422,15 @@
       <dd>{formatDate(item.createdAt)}</dd>
       {#if item.latitude != null && item.longitude != null}
         <dt>Location</dt>
-        <dd>{item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}</dd>
+        <dd>
+          <a
+            href="https://www.google.com/maps/search/?api=1&query={item.latitude},{item.longitude}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}
+          </a>
+        </dd>
       {/if}
       {#if cameraLabel}
         <dt>Camera</dt>
