@@ -95,6 +95,32 @@
     await startUploads(files, keepGps, keepCameraExif);
   }
 
+  interface DuplicatePrompt {
+    file: File;
+    filePreviewUrl: string | null;
+    duplicate: MediaItem;
+    resolve: (ok: boolean) => void;
+  }
+  let duplicatePrompt = $state<DuplicatePrompt | null>(null);
+
+  function confirmDuplicate(file: File, duplicate: MediaItem): Promise<boolean> {
+    return new Promise((resolve) => {
+      duplicatePrompt = {
+        file,
+        filePreviewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        duplicate,
+        resolve,
+      };
+    });
+  }
+
+  function resolveDuplicatePrompt(ok: boolean) {
+    if (!duplicatePrompt) return;
+    if (duplicatePrompt.filePreviewUrl) URL.revokeObjectURL(duplicatePrompt.filePreviewUrl);
+    duplicatePrompt.resolve(ok);
+    duplicatePrompt = null;
+  }
+
   const MEMBER_AVATAR_LIMIT = 5;
   const overflowing = $derived(members.length > MEMBER_AVATAR_LIMIT);
   const visibleMembers = $derived(
@@ -227,14 +253,7 @@
         const checksumSha256 = await sha256Hex(file);
         const duplicate = await checkDuplicate(groupId, checksumSha256).catch(() => null);
         if (duplicate) {
-          const ok = await confirmDialog({
-            title: 'Possible duplicate',
-            message: `"${file.name}" looks identical to a photo already in this group${
-              duplicate.uploaderName ? ` (uploaded by ${duplicate.uploaderName})` : ''
-            }. Upload it anyway?`,
-            confirmLabel: 'Upload anyway',
-            danger: false,
-          });
+          const ok = await confirmDuplicate(file, duplicate);
           if (!ok) {
             uploads[idx].error = 'Skipped — duplicate';
             continue;
@@ -591,6 +610,7 @@
     showDownloadMenu = false;
     showDownloadAllMenu = false;
     if (pendingUploadFiles) cancelPendingUpload();
+    if (duplicatePrompt) resolveDuplicatePrompt(false);
   }}
 />
 
@@ -625,6 +645,58 @@
       <div class="modal-actions">
         <button class="btn ghost" onclick={cancelPendingUpload}>Cancel</button>
         <button class="btn" onclick={confirmPendingUpload}>Upload</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if duplicatePrompt}
+  <div
+    class="backdrop"
+    role="presentation"
+    onclick={() => resolveDuplicatePrompt(false)}
+    transition:fade={{ duration: 150 }}
+  >
+    <div
+      class="dialog card duplicate-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-label="Possible duplicate"
+      tabindex="-1"
+      onclick={(e) => e.stopPropagation()}
+      transition:scale={{ duration: 150, start: 0.96 }}
+    >
+      <h2>Possible duplicate</h2>
+      <p class="muted">
+        "{duplicatePrompt.file.name}" looks identical to a photo already in this group{duplicatePrompt
+          .duplicate.uploaderName
+          ? ` (uploaded by ${duplicatePrompt.duplicate.uploaderName})`
+          : ''}.
+      </p>
+      <div class="duplicate-compare">
+        <div class="duplicate-side">
+          <span class="muted small">New file</span>
+          {#if duplicatePrompt.filePreviewUrl}
+            <img src={duplicatePrompt.filePreviewUrl} alt={duplicatePrompt.file.name} />
+          {:else}
+            <div class="duplicate-placeholder">{duplicatePrompt.file.name}</div>
+          {/if}
+        </div>
+        <div class="duplicate-side">
+          <span class="muted small">Already in this group</span>
+          {#if duplicatePrompt.duplicate.thumbnailUrl}
+            <img
+              src={duplicatePrompt.duplicate.thumbnailUrl}
+              alt={duplicatePrompt.duplicate.filename}
+            />
+          {:else}
+            <div class="duplicate-placeholder">{duplicatePrompt.duplicate.filename}</div>
+          {/if}
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" onclick={() => resolveDuplicatePrompt(false)}>Skip</button>
+        <button class="btn" onclick={() => resolveDuplicatePrompt(true)}>Upload anyway</button>
       </div>
     </div>
   </div>
@@ -1106,6 +1178,42 @@
     justify-content: flex-end;
     gap: 10px;
     margin-top: 16px;
+  }
+  .duplicate-dialog {
+    max-width: 480px;
+  }
+  .duplicate-compare {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .duplicate-side {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .duplicate-side img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .duplicate-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
   .map-card {
     margin-bottom: 20px;
