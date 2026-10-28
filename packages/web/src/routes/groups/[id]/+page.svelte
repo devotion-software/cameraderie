@@ -927,9 +927,12 @@
     object-fit: cover;
     display: block;
   }
+  .contain-tiles .tile {
+    aspect-ratio: auto;
+  }
   .contain-tiles .tile img {
-    object-fit: contain;
-    background: var(--surface-2);
+    height: auto;
+    object-fit: unset;
   }
   .placeholder {
     width: 100%;
