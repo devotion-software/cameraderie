@@ -834,7 +834,7 @@
       />
     {/if}
   </div>
-{:else if loading}
+{:else if loading && items.length === 0}
   <p class="muted">Loading…</p>
 {:else if items.length === 0}
   <p class="muted">
