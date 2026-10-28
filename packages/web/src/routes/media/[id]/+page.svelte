@@ -149,8 +149,11 @@
   }
 
   function onKeydown(e: KeyboardEvent) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'ArrowLeft') goToSibling(prevId);
     else if (e.key === 'ArrowRight') goToSibling(nextId);
+    else if (e.key === 'd' || e.key === 'D') void download();
+    else if (e.key === 'l' || e.key === 'L') void toggleFavourite();
   }
 
   async function load() {
