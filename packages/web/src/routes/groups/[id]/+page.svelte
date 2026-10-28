@@ -35,23 +35,31 @@
 
   let showMap = $state(false);
   let mapLocations = $state<MediaLocation[] | null>(null);
+  // Which `likedOnly` value `mapLocations` was last fetched with, so toggling
+  // the filter while on the map re-fetches instead of reusing a stale set.
+  let mapLocationsLiked = $state<boolean | null>(null);
   let mapLoading = $state(false);
+
+  async function loadMapLocations() {
+    mapLoading = true;
+    try {
+      const res = await api.get<{ media: MediaLocation[] }>(
+        `/groups/${groupId}/media/locations?liked=${likedOnly}`,
+      );
+      mapLocations = res.media;
+      mapLocationsLiked = likedOnly;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to load map';
+    } finally {
+      mapLoading = false;
+    }
+  }
 
   async function setView(wantMap: boolean) {
     if (showMap === wantMap) return;
     showMap = wantMap;
-    if (showMap && mapLocations === null) {
-      mapLoading = true;
-      try {
-        const res = await api.get<{ media: MediaLocation[] }>(
-          `/groups/${groupId}/media/locations`,
-        );
-        mapLocations = res.media;
-      } catch (err) {
-        error = err instanceof Error ? err.message : 'Failed to load map';
-      } finally {
-        mapLoading = false;
-      }
+    if (showMap && (mapLocations === null || mapLocationsLiked !== likedOnly)) {
+      await loadMapLocations();
     }
   }
 
@@ -876,23 +884,22 @@
 
 {#if group}
   <div class="filter-bar">
-    {#if !showMap}
-      {#if items.length > 0}
-        <button class="btn secondary" onclick={toggleSelectMode}>
-          {selectMode ? 'Cancel' : 'Select'}
-        </button>
-      {/if}
-      <button
-        class="btn secondary"
-        class:active={likedOnly}
-        onclick={() => {
-          likedOnly = !likedOnly;
-          void onFilterChange();
-        }}
-      >
-        ♥ Liked only
+    {#if !showMap && items.length > 0}
+      <button class="btn secondary" onclick={toggleSelectMode}>
+        {selectMode ? 'Cancel' : 'Select'}
       </button>
     {/if}
+    <button
+      class="btn secondary"
+      class:active={likedOnly}
+      onclick={() => {
+        likedOnly = !likedOnly;
+        if (showMap) void loadMapLocations();
+        else void onFilterChange();
+      }}
+    >
+      ♥ Liked only
+    </button>
     <div class="view-controls">
       {#if items.length > 0}
         <div class="fit-toggle" role="group" aria-label="View">
