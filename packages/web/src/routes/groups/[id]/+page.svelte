@@ -576,15 +576,28 @@
   <div class="head">
     <div>
       <a href="/groups" class="back"><span class="arrow">←</span> Groups</a>
-      <h1>{group.name}</h1>
+      <div class="title-row">
+        <h1>{group.name}</h1>
+        {#if amGroupAdmin}
+          <button class="icon-btn edit-group-btn" onclick={openEditGroup} aria-label="Edit group">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0 0-2.12l-1.88-1.88a1.5 1.5 0 0 0-2.12 0L4 16v4Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        {/if}
+      </div>
       {#if group.description}<p class="muted">{group.description}</p>{/if}
       <p class="muted stats">{statsLine}</p>
     </div>
     <span class="spacer"></span>
     <div class="actions">
-      {#if amGroupAdmin}
-        <button class="btn secondary" onclick={openEditGroup}>Edit group</button>
-      {/if}
       <a class="btn secondary member-link" href="/groups/{groupId}/members">
         Members
         {#if visibleMembers.length > 0}
@@ -985,6 +998,37 @@
   }
   .head h1 {
     margin: 4px 0 0;
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .edit-group-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity var(--dur-fast) ease,
+      background-color var(--dur-fast) ease,
+      color var(--dur-fast) ease;
+  }
+  .title-row:hover .edit-group-btn,
+  .title-row:focus-within .edit-group-btn {
+    opacity: 1;
+  }
+  .edit-group-btn:hover {
+    background: var(--accent-soft);
+    color: var(--text);
   }
   .stats {
     font-size: 13px;
