@@ -224,6 +224,58 @@
     }
   }
 
+  let showEditGroup = $state(false);
+  let editName = $state('');
+  let savingGroup = $state(false);
+  let removingCover = $state(false);
+
+  function openEditGroup() {
+    if (!group) return;
+    editName = group.name;
+    showEditGroup = true;
+  }
+
+  function closeEditGroup() {
+    showEditGroup = false;
+  }
+
+  async function saveGroupName(e: SubmitEvent) {
+    e.preventDefault();
+    if (!group || !editName.trim()) return;
+    savingGroup = true;
+    try {
+      const res = await api.patch<{ group: Group }>(`/groups/${groupId}`, {
+        name: editName.trim(),
+      });
+      group = { ...group, name: res.group.name };
+      showEditGroup = false;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to update group';
+    } finally {
+      savingGroup = false;
+    }
+  }
+
+  async function removeCover() {
+    if (!group) return;
+    const ok = await confirmDialog({
+      title: 'Remove cover photo',
+      message: 'Remove the group cover photo? You can set a new one later from any photo.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
+    removingCover = true;
+    try {
+      await api.del(`/groups/${groupId}/cover`);
+      group = { ...group, coverMediaId: null, coverThumbnailUrl: null };
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to remove cover photo';
+    } finally {
+      removingCover = false;
+    }
+  }
+
   let contextMenu = $state<{ x: number; y: number; mediaId: string } | null>(null);
   const contextMenuItem = $derived(
     contextMenu ? (items.find((i) => i.id === contextMenu!.mediaId) ?? null) : null,
@@ -485,6 +537,9 @@
     </div>
     <span class="spacer"></span>
     <div class="actions">
+      {#if amGroupAdmin}
+        <button class="btn secondary" onclick={openEditGroup}>Edit group</button>
+      {/if}
       <a class="btn secondary member-link" href="/groups/{groupId}/members">
         Members
         {#if visibleMembers.length > 0}
@@ -535,6 +590,44 @@
       />
     </div>
   </div>
+
+  {#if showEditGroup}
+    <form class="card edit-group" onsubmit={saveGroupName}>
+      <label class="field">
+        <span class="muted">Group name</span>
+        <input class="input" bind:value={editName} maxlength={80} required />
+      </label>
+      <div class="field">
+        <span class="muted">Cover photo</span>
+        <div class="cover-row">
+          {#if group.coverThumbnailUrl}
+            <img class="cover-thumb" src={group.coverThumbnailUrl} alt="" />
+            <button
+              type="button"
+              class="btn secondary"
+              onclick={removeCover}
+              disabled={removingCover}
+            >
+              {removingCover ? 'Removing…' : 'Remove cover'}
+            </button>
+          {:else}
+            <span class="muted">No cover set.</span>
+          {/if}
+        </div>
+        <span class="muted hint">
+          Set a new cover from any photo's right-click menu in the grid below.
+        </span>
+      </div>
+      <div class="edit-actions">
+        <button class="btn" type="submit" disabled={savingGroup || !editName.trim()}>
+          {savingGroup ? 'Saving…' : 'Save'}
+        </button>
+        <button class="btn ghost" type="button" onclick={closeEditGroup} disabled={savingGroup}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  {/if}
 
   {#if uploads.length}
     <div class="card uploads">
@@ -826,6 +919,37 @@
     color: var(--text-dim);
     font-size: 10px;
     font-weight: 700;
+  }
+  .edit-group {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cover-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cover-thumb {
+    width: 72px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--surface-2);
+  }
+  .edit-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .hint {
+    font-size: 12px;
   }
   .uploads {
     margin-bottom: 16px;
