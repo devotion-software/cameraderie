@@ -186,3 +186,9 @@ export const updateUploadDefaultsBody = z.object({
   defaultKeepCameraExif: z.boolean().optional(),
 });
 export type UpdateUploadDefaultsBody = z.infer<typeof updateUploadDefaultsBody>;
+
+/** Remembered per-user preference: default download quality. */
+export const updateDownloadQualityBody = z.object({
+  defaultDownloadQuality: downloadQualitySchema,
+});
+export type UpdateDownloadQualityBody = z.infer<typeof updateDownloadQualityBody>;

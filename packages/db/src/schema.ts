@@ -51,6 +51,10 @@ export const user = mysqlTable('user', {
   defaultKeepGps: boolean('default_keep_gps').notNull().default(true),
   /** Remembered upload preference: keep camera/lens/exposure EXIF. */
   defaultKeepCameraExif: boolean('default_keep_camera_exif').notNull().default(true),
+  /** Remembered preference: default download quality (one of DOWNLOAD_QUALITIES). */
+  defaultDownloadQuality: varchar('default_download_quality', { length: 16 })
+    .notNull()
+    .default('original'),
   /** Set by an admin to block sign-in, viewing, uploading, and downloading. Null = active. */
   disabledAt: timestamp('disabled_at'),
   /**

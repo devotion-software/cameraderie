@@ -8,7 +8,7 @@
   import { uploadFile, checkDuplicate, sha256Hex } from '$lib/upload';
   import { formatBytes, formatDuration } from '$lib/format';
   import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
-  import type { Group, MediaItem, MediaLocation, Member } from '$lib/types';
+  import type { Group, MediaItem, MediaLocation, Member, Profile } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
   import LeafletMap from '$lib/components/LeafletMap.svelte';
@@ -144,15 +144,14 @@
       const [g, m, me] = await Promise.all([
         api.get<{ group: Group }>(`/groups/${groupId}`),
         api.get<{ members: Member[] }>(`/groups/${groupId}/members`),
-        api
-          .get<{ user: { defaultKeepGps: boolean; defaultKeepCameraExif: boolean } }>('/me')
-          .catch(() => null),
+        api.get<{ user: Profile }>('/me').catch(() => null),
       ]);
       group = g.group;
       members = m.members;
       if (me) {
         defaultKeepGps = me.user.defaultKeepGps;
         defaultKeepCameraExif = me.user.defaultKeepCameraExif;
+        downloadQuality = me.user.defaultDownloadQuality;
       }
       await refreshFeed();
     } catch (err) {

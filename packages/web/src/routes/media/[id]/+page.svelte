@@ -13,7 +13,7 @@
     formatFocalLength,
   } from '$lib/format';
   import { downloadOne, QUALITY_OPTIONS, VIDEO_QUALITY_OPTIONS } from '$lib/download';
-  import type { Group, MediaItem } from '$lib/types';
+  import type { Group, MediaItem, Profile } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
   import { confirmDialog } from '$lib/confirm.svelte';
@@ -160,8 +160,12 @@
     loading = true;
     mediaLoaded = false;
     try {
-      const res = await api.get<{ media: MediaItem }>(`/media/${mediaId}`);
+      const [res, me] = await Promise.all([
+        api.get<{ media: MediaItem }>(`/media/${mediaId}`),
+        api.get<{ user: Profile }>('/me').catch(() => null),
+      ]);
       item = res.media;
+      if (me) downloadQuality = me.user.defaultDownloadQuality;
       const g = await api.get<{ group: Group }>(`/groups/${item.groupId}`);
       group = g.group;
       await loadSiblingIds(item.groupId);

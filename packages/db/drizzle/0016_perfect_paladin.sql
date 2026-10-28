@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `default_download_quality` varchar(16) DEFAULT 'original' NOT NULL;

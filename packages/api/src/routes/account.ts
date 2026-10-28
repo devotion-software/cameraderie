@@ -6,6 +6,7 @@ import {
   avatarKey,
   beginAvatarUploadBody,
   planFromEntitlement,
+  updateDownloadQualityBody,
   updateUploadDefaultsBody,
 } from '@cameraderie/shared';
 import { getDb } from '../db.js';
@@ -28,6 +29,7 @@ export default async function accountRoutes(app: FastifyInstance) {
         image: user.image,
         defaultKeepGps: user.defaultKeepGps,
         defaultKeepCameraExif: user.defaultKeepCameraExif,
+        defaultDownloadQuality: user.defaultDownloadQuality,
       })
       .from(user)
       .where(eq(user.id, me.id))
@@ -45,8 +47,21 @@ export default async function accountRoutes(app: FastifyInstance) {
         avatarUrl,
         defaultKeepGps: row?.defaultKeepGps ?? true,
         defaultKeepCameraExif: row?.defaultKeepCameraExif ?? true,
+        defaultDownloadQuality: row?.defaultDownloadQuality ?? 'original',
       },
     };
+  });
+
+  // Remembers the uploader's preferred download quality, so it's preselected
+  // in quality dropdowns and used for the media page's 'd' shortcut.
+  app.patch('/me/download-quality', async (req) => {
+    const me = await requireUser(req);
+    const body = parse(updateDownloadQualityBody, req.body);
+    await db
+      .update(user)
+      .set({ defaultDownloadQuality: body.defaultDownloadQuality })
+      .where(eq(user.id, me.id));
+    return { ok: true };
   });
 
   // Remembers the uploader's last choice for what EXIF to keep, so the

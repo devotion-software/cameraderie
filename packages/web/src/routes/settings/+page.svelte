@@ -4,9 +4,12 @@
   import { api } from '$lib/api';
   import { API_URL } from '$lib/config';
   import type { Profile, Usage } from '$lib/types';
+  import type { DownloadQuality } from '@cameraderie/shared';
   import StoragePanel from '$lib/components/StoragePanel.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import AvatarUpload from '$lib/components/AvatarUpload.svelte';
+  import Dropdown from '$lib/components/Dropdown.svelte';
+  import { QUALITY_OPTIONS } from '$lib/download';
   import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
@@ -30,6 +33,20 @@
 
   function setAvatarUrl(avatarUrl: string | null) {
     if (profile) profile = { ...profile, avatarUrl };
+  }
+
+  let savingDownloadQuality = $state(false);
+  async function saveDownloadQuality(defaultDownloadQuality: DownloadQuality) {
+    if (!profile) return;
+    profile = { ...profile, defaultDownloadQuality };
+    savingDownloadQuality = true;
+    try {
+      await api.patch('/me/download-quality', { defaultDownloadQuality });
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to save default download quality';
+    } finally {
+      savingDownloadQuality = false;
+    }
   }
 
   async function saveName(e: SubmitEvent) {
@@ -199,6 +216,24 @@
 </section>
 
 <section class="card">
+  <h2>Downloads</h2>
+  {#if profile}
+    <div class="quality-field">
+      <span class="quality-label">Default download quality</span>
+      <Dropdown
+        options={QUALITY_OPTIONS}
+        value={profile.defaultDownloadQuality}
+        onchange={saveDownloadQuality}
+        label="Default download quality"
+      />
+    </div>
+    <p class="muted small">
+      Used to preselect quality when downloading, and for the 'd' shortcut on a photo.
+    </p>
+  {/if}
+</section>
+
+<section class="card">
   <h2>Sign-in methods</h2>
   <p class="muted">Passkeys let you sign in with Face ID, Touch ID, or a security key.</p>
   {#if $passkeys.data?.length}
@@ -301,6 +336,16 @@
     font-weight: 600;
     color: var(--text-dim);
     margin-bottom: 6px;
+  }
+  .quality-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .quality-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
   }
   .plans {
     display: grid;

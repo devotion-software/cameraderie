@@ -1,5 +1,7 @@
 /** Mirrors the API response shapes (see packages/api/src/serialize.ts). */
 
+import type { DownloadQuality } from '@cameraderie/shared';
+
 export interface Group {
   id: string;
   name: string;
@@ -76,6 +78,9 @@ export interface Profile {
   plan: string;
   acceptedTermsAt: string | null;
   avatarUrl: string | null;
+  defaultKeepGps: boolean;
+  defaultKeepCameraExif: boolean;
+  defaultDownloadQuality: DownloadQuality;
 }
 
 export interface Usage {
