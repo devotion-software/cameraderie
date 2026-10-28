@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { authClient, signIn, useSession } from '$lib/auth';
+  import { slide } from 'svelte/transition';
 
   const session = useSession();
   const redirectTo = $derived(page.url.searchParams.get('redirect') || '/groups');
@@ -163,7 +164,7 @@
           <span>Email</span>
           <input class="input" type="email" bind:value={email} required autocomplete="email" />
         </label>
-        {#if error}<p class="error">{error}</p>{/if}
+        {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
         <button class="btn" type="submit" disabled={busy || !email}>
           {busy ? 'Please wait…' : 'Send sign-in code'}
         </button>
@@ -184,7 +185,7 @@
             maxlength={6}
           />
         </label>
-        {#if error}<p class="error">{error}</p>{/if}
+        {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
         <button class="btn" type="submit" disabled={busy || otp.length < 6}>
           {busy ? 'Please wait…' : 'Continue'}
         </button>
@@ -207,7 +208,7 @@
           Add a passkey for faster, more secure sign-in next time &mdash; Face ID, Touch ID, or a
           security key.
         </p>
-        {#if error}<p class="error">{error}</p>{/if}
+        {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
         <button class="btn" type="button" disabled={busy} onclick={addPasskeyNow}>
           {busy ? 'Follow your browser prompt…' : 'Add a passkey'}
         </button>

@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { api } from '$lib/api';
   import { authClient, useSession } from '$lib/auth';
+  import { slide } from 'svelte/transition';
 
   const session = useSession();
   const redirectTo = $derived(page.url.searchParams.get('redirect') || '/groups');
@@ -66,7 +67,7 @@
         </span>
       </label>
 
-      {#if error}<p class="error">{error}</p>{/if}
+      {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
       <button class="btn" type="submit" disabled={busy || !canSubmit}>
         {busy ? 'Please wait…' : 'Continue'}

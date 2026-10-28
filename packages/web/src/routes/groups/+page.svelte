@@ -124,7 +124,7 @@
   </form>
 {/if}
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
 {#if loading}
   <p class="muted">Loading…</p>

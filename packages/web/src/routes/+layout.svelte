@@ -2,6 +2,7 @@
   import '../app.css';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { fade } from 'svelte/transition';
   import { useSession, signOut } from '$lib/auth';
   import { api } from '$lib/api';
   import type { Profile } from '$lib/types';
@@ -94,7 +95,11 @@
 </header>
 
 <main class="container">
-  {@render children()}
+  {#key page.url.pathname}
+    <div in:fade={{ duration: 120, delay: 60 }}>
+      {@render children()}
+    </div>
+  {/key}
 </main>
 
 <ConfirmDialog />

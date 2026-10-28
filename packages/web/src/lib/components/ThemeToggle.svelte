@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { scale } from 'svelte/transition';
+
   let theme = $state<'light' | 'dark'>('light');
 
   $effect(() => {
@@ -26,6 +28,7 @@
       fill="none"
       stroke="currentColor"
       stroke-width="1.8"
+      in:scale={{ duration: 200, start: 0.5 }}
     >
       <circle cx="12" cy="12" r="4.5" />
       <path
@@ -34,7 +37,13 @@
       />
     </svg>
   {:else}
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      in:scale={{ duration: 200, start: 0.5 }}
+    >
       <path d="M20.6 15.3a8.6 8.6 0 0 1-10-11.9A9.1 9.1 0 1 0 20.6 15.3Z" />
     </svg>
   {/if}

@@ -10,6 +10,7 @@
   import AvatarUpload from '$lib/components/AvatarUpload.svelte';
   import Dropdown from '$lib/components/Dropdown.svelte';
   import { QUALITY_OPTIONS } from '$lib/download';
+  import { slide } from 'svelte/transition';
   import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
@@ -188,7 +189,7 @@
 
 <h1>Settings</h1>
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
 <section class="card">
   <h2>Profile</h2>

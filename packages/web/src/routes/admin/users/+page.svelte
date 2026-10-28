@@ -5,6 +5,7 @@
   import { formatDate } from '$lib/format';
   import type { AdminUser } from '$lib/types';
   import { confirmDialog } from '$lib/confirm.svelte';
+  import { slide } from 'svelte/transition';
 
   const session = useSession();
   let rows = $state<AdminUser[]>([]);
@@ -83,7 +84,7 @@
   Control who can create new groups and invite new members. Site admins always have both.
 </p>
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
 {#if loading}
   <p class="muted">Loading…</p>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade, scale } from 'svelte/transition';
+  import { fade, scale, slide } from 'svelte/transition';
   import { api } from '$lib/api';
   import { uploadAvatar } from '$lib/avatar';
   import { portal } from '$lib/portal';
@@ -81,7 +81,7 @@
       </button>
     {/if}
   </div>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 </div>
 
 <svelte:window onkeydown={(e) => lightboxOpen && e.key === 'Escape' && (lightboxOpen = false)} />

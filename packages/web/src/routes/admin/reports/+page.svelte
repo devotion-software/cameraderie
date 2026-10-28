@@ -4,6 +4,7 @@
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
   import { confirmDialog } from '$lib/confirm.svelte';
+  import { slide } from 'svelte/transition';
 
   interface ReportRow {
     report: { id: string; mediaId: string; reason: string; createdAt: string };
@@ -69,7 +70,7 @@
 
 <h1>Open reports</h1>
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
 {#if loading}
   <p class="muted">Loading…</p>

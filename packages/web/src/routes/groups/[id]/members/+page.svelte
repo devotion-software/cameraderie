@@ -1,6 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
+  import { slide } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
@@ -103,7 +105,7 @@
 {/if}
 
 {#if showInvite}
-  <form class="card invite-form" onsubmit={createInvite}>
+  <form class="card invite-form" onsubmit={createInvite} transition:slide={{ duration: 180 }}>
     <input
       class="input"
       type="email"
@@ -125,20 +127,20 @@
 {/if}
 
 {#if inviteUrl}
-  <div class="card invite">
+  <div class="card invite" transition:slide={{ duration: 180 }}>
     <span class="muted">Invite link (copied):</span>
     <code>{inviteUrl}</code>
   </div>
 {/if}
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error}<p class="error" transition:slide={{ duration: 150 }}>{error}</p>{/if}
 
 {#if loading}
   <p class="muted">Loading…</p>
 {:else}
   <div class="list">
     {#each members as m (m.userId)}
-      <div class="card member">
+      <div class="card member" transition:slide={{ duration: 180 }} animate:flip={{ duration: 200 }}>
         <Avatar name={m.name} src={m.avatarUrl} size={38} />
         <div class="who">
           <strong>{m.name}</strong>

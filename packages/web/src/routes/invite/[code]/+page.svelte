@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
+  import { slide } from 'svelte/transition';
 
   const session = useSession();
   const code = $derived(page.params.code);
@@ -54,12 +55,12 @@
     {#if loading}
       <p class="muted">Loading invite…</p>
     {:else if error}
-      <p class="error">{error}</p>
+      <p class="error" transition:slide={{ duration: 150 }}>{error}</p>
       <a class="btn secondary" href="/groups">Go to your groups</a>
     {:else}
       <h1>Join {groupName}</h1>
       {#if expired}
-        <p class="error">This invite has expired.</p>
+        <p class="error" transition:slide={{ duration: 150 }}>This invite has expired.</p>
       {:else}
         <p class="muted">You've been invited to share photos and videos in this group.</p>
         <button class="btn" onclick={accept} disabled={joining}>
