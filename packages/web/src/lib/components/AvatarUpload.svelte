@@ -2,6 +2,7 @@
   import { fade, scale } from 'svelte/transition';
   import { api } from '$lib/api';
   import { uploadAvatar } from '$lib/avatar';
+  import { portal } from '$lib/portal';
   import Avatar from './Avatar.svelte';
 
   interface Props {
@@ -91,6 +92,7 @@
     role="dialog"
     aria-modal="true"
     tabindex="-1"
+    use:portal
     onclick={() => (lightboxOpen = false)}
     transition:fade={{ duration: 150 }}
   >
