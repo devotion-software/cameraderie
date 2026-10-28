@@ -8,6 +8,7 @@
   import type { Group, MediaItem } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
   import Avatar from '$lib/components/Avatar.svelte';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
   const mediaId = $derived(page.params.id);
@@ -117,7 +118,14 @@
   }
 
   async function remove() {
-    if (!item || !confirm('Delete this permanently? This removes the original too.')) return;
+    if (!item) return;
+    const ok = await confirmDialog({
+      title: 'Delete permanently',
+      message: 'Delete this permanently? This removes the original too.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const gid = item.groupId;
       await api.del(`/media/${item.id}`);

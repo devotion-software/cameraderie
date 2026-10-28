@@ -7,6 +7,7 @@
   import StoragePanel from '$lib/components/StoragePanel.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import AvatarUpload from '$lib/components/AvatarUpload.svelte';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
   let usage = $state<Usage | null>(null);
@@ -148,12 +149,14 @@
   }
 
   async function deleteAccount() {
-    if (
-      !confirm(
+    const ok = await confirmDialog({
+      title: 'Delete account',
+      message:
         'Delete your account and all your uploads permanently? This cannot be undone. Groups you own pass to the next member, or are deleted if empty.',
-      )
-    )
-      return;
+      confirmLabel: 'Delete account',
+      danger: true,
+    });
+    if (!ok) return;
     deleting = true;
     try {
       await api.del('/me');

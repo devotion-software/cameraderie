@@ -3,6 +3,7 @@
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   interface ReportRow {
     report: { id: string; mediaId: string; reason: string; createdAt: string };
@@ -48,7 +49,15 @@
   }
 
   async function resolve(id: string, action: 'actioned' | 'dismissed') {
-    if (action === 'actioned' && !confirm('Take this media down permanently?')) return;
+    if (action === 'actioned') {
+      const ok = await confirmDialog({
+        title: 'Take down media',
+        message: 'Take this media down permanently?',
+        confirmLabel: 'Take down',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     try {
       await api.post(`/admin/reports/${id}/resolve`, { action });
       rows = rows.filter((r) => r.report.id !== id);

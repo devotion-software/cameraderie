@@ -6,6 +6,7 @@
   import { formatDate } from '$lib/format';
   import type { Group, Member } from '$lib/types';
   import Avatar from '$lib/components/Avatar.svelte';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
   const groupId = $derived(page.params.id);
@@ -72,7 +73,13 @@
   }
 
   async function remove(userId: string) {
-    if (!confirm('Remove this member?')) return;
+    const ok = await confirmDialog({
+      title: 'Remove member',
+      message: 'Remove this member?',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.del(`/groups/${groupId}/members/${userId}`);
       members = members.filter((m) => m.userId !== userId);

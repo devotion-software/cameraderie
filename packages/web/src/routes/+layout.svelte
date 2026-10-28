@@ -6,6 +6,7 @@
   import { api } from '$lib/api';
   import type { Profile } from '$lib/types';
   import Avatar from '$lib/components/Avatar.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
   let { children } = $props();
   const session = useSession();
@@ -93,6 +94,8 @@
 <main class="container">
   {@render children()}
 </main>
+
+<ConfirmDialog />
 
 <style>
   .topbar {

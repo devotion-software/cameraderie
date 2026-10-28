@@ -4,6 +4,7 @@
   import { api } from '$lib/api';
   import { formatDate } from '$lib/format';
   import type { AdminUser } from '$lib/types';
+  import { confirmDialog } from '$lib/confirm.svelte';
 
   const session = useSession();
   let rows = $state<AdminUser[]>([]);
@@ -62,10 +63,16 @@
     void update(u.id, { role: u.role === 'admin' ? 'user' : 'admin' });
   }
 
-  function toggleDisabled(u: AdminUser) {
+  async function toggleDisabled(u: AdminUser) {
     const next = !u.disabledAt;
-    if (next && !confirm(`Deactivate ${u.name}? They won't be able to sign in or use the app.`)) {
-      return;
+    if (next) {
+      const ok = await confirmDialog({
+        title: 'Deactivate user',
+        message: `Deactivate ${u.name}? They won't be able to sign in or use the app.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      });
+      if (!ok) return;
     }
     void update(u.id, { disabled: next });
   }
