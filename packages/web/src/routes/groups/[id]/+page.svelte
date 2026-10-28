@@ -45,7 +45,11 @@
       .sort((a, b) => b.mediaCount - a.mediaCount),
   );
 
+  const VIEW_MODE_KEY = 'cameraderie:viewMode';
   let showMap = $state(false);
+  if (typeof localStorage !== 'undefined') {
+    showMap = localStorage.getItem(VIEW_MODE_KEY) === 'map';
+  }
   let mapLocations = $state<MediaLocation[] | null>(null);
   // Which filters `mapLocations` was last fetched with, so toggling them
   // while on the map re-fetches instead of reusing a stale set.
@@ -69,6 +73,7 @@
   }
 
   async function setView(wantMap: boolean) {
+    localStorage.setItem(VIEW_MODE_KEY, wantMap ? 'map' : 'grid');
     if (showMap === wantMap) return;
     showMap = wantMap;
     if (showMap && (mapLocations === null || mapLocationsKey !== currentMapKey)) {
@@ -242,6 +247,7 @@
         downloadQuality = me.user.defaultDownloadQuality;
       }
       await refreshFeed();
+      if (showMap) await loadMapLocations();
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load group';
     } finally {
