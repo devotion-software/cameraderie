@@ -106,6 +106,7 @@
   interface DuplicatePrompt {
     file: File;
     filePreviewUrl: string | null;
+    filePreviewLoading: boolean;
     duplicate: MediaItem;
     remaining: number;
     resolve: (ok: boolean) => void;
@@ -120,20 +121,37 @@
   function confirmDuplicate(file: File, duplicate: MediaItem, remaining: number): Promise<boolean> {
     if (bulkDuplicateAction) return Promise.resolve(bulkDuplicateAction === 'upload');
     return new Promise((resolve) => {
-      // Some browsers report an empty `type` for HEIC/HEIF files, so fall
-      // back to the extension before giving up on a preview — the <img>'s
-      // onerror handler catches browsers that still can't decode it.
-      const looksLikeImage =
-        file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name);
+      // Browsers can't decode HEIC/HEIF in an <img> at all (except Safari),
+      // and often report an empty `type` for them too, so detect by
+      // extension and convert to a JPEG blob ourselves for the preview.
+      const isHeic = /\.(heic|heif)$/i.test(file.name);
       filePreviewBroken = false;
       duplicatePrompt = {
         file,
-        filePreviewUrl: looksLikeImage ? URL.createObjectURL(file) : null,
+        filePreviewUrl: !isHeic && file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        filePreviewLoading: isHeic,
         duplicate,
         remaining,
         resolve,
       };
+      if (isHeic) void convertHeicPreview(file);
     });
+  }
+
+  async function convertHeicPreview(file: File) {
+    try {
+      const { heicTo } = await import('heic-to');
+      const blob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.8 });
+      const url = URL.createObjectURL(blob);
+      if (duplicatePrompt?.file === file) {
+        duplicatePrompt.filePreviewUrl = url;
+        duplicatePrompt.filePreviewLoading = false;
+      } else {
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      if (duplicatePrompt?.file === file) duplicatePrompt.filePreviewLoading = false;
+    }
   }
 
   function resolveDuplicatePrompt(ok: boolean) {
@@ -725,6 +743,11 @@
               alt={duplicatePrompt.file.name}
               onerror={() => (filePreviewBroken = true)}
             />
+          {:else if duplicatePrompt.filePreviewLoading}
+            <div class="duplicate-placeholder">
+              <span class="spinner"></span>
+              <span class="duplicate-placeholder-note">Generating preview…</span>
+            </div>
           {:else}
             <div class="duplicate-placeholder">
               <span class="duplicate-placeholder-name">{duplicatePrompt.file.name}</span>
