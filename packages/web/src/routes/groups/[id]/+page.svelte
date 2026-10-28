@@ -323,10 +323,19 @@
       }
     }
     await refreshFeed();
-    // Clear finished tasks after a moment.
+    // Clear successfully finished tasks after a moment — errored/skipped
+    // ones stick around until the user dismisses them.
     setTimeout(() => {
       uploads = uploads.filter((u) => u.error);
     }, 1500);
+  }
+
+  function dismissUpload(name: string) {
+    uploads = uploads.filter((u) => u.name !== name);
+  }
+
+  function clearErroredUploads() {
+    uploads = uploads.filter((u) => !u.error);
   }
 
   const amGroupAdmin = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
@@ -908,11 +917,20 @@
 
   {#if uploads.length}
     <div class="card uploads" transition:slide={{ duration: 180 }}>
+      {#if uploads.some((u) => u.error)}
+        <div class="uploads-head">
+          <span class="spacer"></span>
+          <button class="btn ghost" onclick={clearErroredUploads}>Clear</button>
+        </div>
+      {/if}
       {#each uploads as u (u.name)}
         <div class="up" transition:slide={{ duration: 180 }} animate:flip={{ duration: 200 }}>
           <span class="upname">{u.name}</span>
           {#if u.error}
             <span class="error inline">{u.error}</span>
+            <button class="dismiss" onclick={() => dismissUpload(u.name)} title="Dismiss"
+              >&times;</button
+            >
           {:else if u.fraction >= 1}
             <span class="up-done" in:scale={{ duration: 260, start: 0.5, easing: backOut }}
               >✓ Uploaded</span
@@ -1396,10 +1414,32 @@
     gap: 10px;
     padding: 14px 16px;
   }
+  .uploads-head {
+    display: flex;
+    align-items: center;
+  }
+  .uploads-head .btn {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
   .up {
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+  .dismiss {
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+  }
+  .dismiss:hover {
+    color: var(--text);
+    background: var(--surface-2);
   }
   .upname {
     flex: 0 0 180px;
