@@ -604,31 +604,32 @@
           </button>
         {/if}
         {#if m.thumbnailUrl}
-          <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
+          <div class="media">
+            <img src={m.thumbnailUrl} alt={m.filename} loading="lazy" />
+            {#if m.kind === 'video'}
+              <span class="overlay play">▶ {formatDuration(m.durationMs) ?? ''}</span>
+            {:else if m.kind === 'raw'}
+              <span class="overlay kind">RAW</span>
+            {/if}
+            {#if m.favouriteCount > 0}
+              <span class="overlay fav">♥ {m.favouriteCount}</span>
+            {/if}
+            {#if canManageCover}
+              <button
+                class="overlay cover-btn"
+                class:is-cover={group?.coverMediaId === m.id}
+                onclick={(e) => setCover(m.id, e)}
+                disabled={settingCover === m.id}
+                title={group?.coverMediaId === m.id ? 'Current cover photo' : 'Set as group cover'}
+              >
+                {group?.coverMediaId === m.id ? '★' : '☆'}
+              </button>
+            {/if}
+          </div>
         {:else if m.state === 'failed'}
           <div class="placeholder failed">⚠︎ failed</div>
         {:else}
           <div class="placeholder"><span class="spinner"></span> processing</div>
-        {/if}
-
-        {#if m.kind === 'video'}
-          <span class="overlay play">▶ {formatDuration(m.durationMs) ?? ''}</span>
-        {:else if m.kind === 'raw'}
-          <span class="overlay kind">RAW</span>
-        {/if}
-        {#if m.favouriteCount > 0}
-          <span class="overlay fav">♥ {m.favouriteCount}</span>
-        {/if}
-        {#if canManageCover && m.thumbnailUrl}
-          <button
-            class="overlay cover-btn"
-            class:is-cover={group?.coverMediaId === m.id}
-            onclick={(e) => setCover(m.id, e)}
-            disabled={settingCover === m.id}
-            title={group?.coverMediaId === m.id ? 'Current cover photo' : 'Set as group cover'}
-          >
-            {group?.coverMediaId === m.id ? '★' : '☆'}
-          </button>
         {/if}
       </a>
     {/each}
@@ -921,15 +922,65 @@
       0 0 0 1px var(--accent-soft),
       inset 0 1px 0 var(--glass-highlight);
   }
+  .media {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
   .tile img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
+  .contain-tiles .tile {
+    container-type: size;
+    overflow: visible;
+    background: none;
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .contain-tiles .tile:hover {
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .contain-tiles .tile .media {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    display: inline-flex;
+  }
   .contain-tiles .tile img {
+    width: auto;
+    height: auto;
+    max-width: 100cqw;
+    max-height: 100cqh;
     object-fit: contain;
-    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    transition:
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .contain-tiles .tile.selected img {
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 2px var(--accent),
+      inset 0 1px 0 var(--glass-highlight);
+  }
+  .contain-tiles .tile:hover img {
+    border-color: var(--accent);
+    box-shadow:
+      0 16px 36px -14px hsl(var(--shadow-color) / 0.5),
+      0 0 0 1px var(--accent-soft),
+      inset 0 1px 0 var(--glass-highlight);
   }
   .placeholder {
     width: 100%;
