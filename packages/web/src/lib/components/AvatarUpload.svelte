@@ -14,6 +14,7 @@
   let uploading = $state(false);
   let removing = $state(false);
   let error = $state('');
+  let lightboxOpen = $state(false);
 
   async function onFile(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -49,12 +50,11 @@
   <button
     class="picture"
     type="button"
-    onclick={() => fileInput?.click()}
+    onclick={() => (lightboxOpen = true)}
     disabled={uploading}
-    aria-label="Change profile picture"
+    aria-label="View profile picture"
   >
     <Avatar {name} src={avatarUrl} size={72} />
-    <span class="overlay">{uploading ? '…' : 'Change'}</span>
   </button>
   <input
     bind:this={fileInput}
@@ -82,6 +82,18 @@
   {#if error}<p class="error">{error}</p>{/if}
 </div>
 
+{#if lightboxOpen}
+  <div
+    class="lightbox"
+    role="button"
+    tabindex="0"
+    onclick={() => (lightboxOpen = false)}
+    onkeydown={(e) => e.key === 'Escape' && (lightboxOpen = false)}
+  >
+    <Avatar {name} src={avatarUrl} size={280} />
+  </div>
+{/if}
+
 <style>
   .avatar-upload {
     display: flex;
@@ -101,26 +113,18 @@
   .picture:disabled {
     cursor: default;
   }
-  .overlay {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 600;
-    color: #fff;
-    background: rgb(0 0 0 / 0.45);
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-  .picture:hover .overlay,
-  .picture:focus-visible .overlay {
-    opacity: 1;
-  }
   .actions {
     display: flex;
     gap: 8px;
+  }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(0 0 0 / 0.7);
+    cursor: pointer;
   }
 </style>

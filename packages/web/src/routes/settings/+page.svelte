@@ -173,13 +173,25 @@
 <section class="card">
   <h2>Profile</h2>
   {#if profile}
-    <AvatarUpload name={profile.name} avatarUrl={profile.avatarUrl} onUpdated={setAvatarUrl} />
+    <div class="avatar-section">
+      <AvatarUpload name={profile.name} avatarUrl={profile.avatarUrl} onUpdated={setAvatarUrl} />
+    </div>
   {/if}
-  <form class="row" onsubmit={saveName}>
-    <input class="input" bind:value={name} maxlength={255} placeholder="Your name" required />
-    <button class="btn secondary" type="submit" disabled={savingName || !name.trim()}>
-      {savingName ? 'Saving…' : nameSaved ? 'Saved ✓' : 'Save'}
-    </button>
+  <form class="name-form" onsubmit={saveName}>
+    <label for="settings-name">Name</label>
+    <div class="row">
+      <input
+        id="settings-name"
+        class="input"
+        bind:value={name}
+        maxlength={255}
+        placeholder="Your name"
+        required
+      />
+      <button class="btn secondary" type="submit" disabled={savingName || !name.trim()}>
+        {savingName ? 'Saving…' : nameSaved ? 'Saved ✓' : 'Save'}
+      </button>
+    </div>
   </form>
 </section>
 
@@ -276,6 +288,16 @@
   }
   section {
     margin-bottom: 16px;
+  }
+  .avatar-section {
+    margin-bottom: 20px;
+  }
+  .name-form label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 6px;
   }
   .plans {
     display: grid;
