@@ -689,9 +689,6 @@
             Map
           </button>
         </div>
-        <button class="btn secondary" onclick={toggleSelectMode}>
-          {selectMode ? 'Cancel' : 'Select'}
-        </button>
         <div class="download-wrap">
           <button class="btn secondary" onclick={onDownloadAllClick} disabled={downloading}>
             {downloading ? 'Downloading…' : 'Download all'}
@@ -826,6 +823,11 @@
 
 {#if group && !showMap}
   <div class="filter-bar">
+    {#if items.length > 0}
+      <button class="btn secondary" onclick={toggleSelectMode}>
+        {selectMode ? 'Cancel' : 'Select'}
+      </button>
+    {/if}
     <button
       class="btn secondary"
       class:active={likedOnly}
