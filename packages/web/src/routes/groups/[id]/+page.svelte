@@ -184,11 +184,15 @@
 
   const statsLine = $derived.by(() => {
     if (!group) return '';
-    const parts = [
+    const counts = [
       `${group.photoCount} photo${group.photoCount === 1 ? '' : 's'}`,
       `${group.videoCount} video${group.videoCount === 1 ? '' : 's'}`,
     ];
-    return `${parts.join(', ')} · ${formatBytes(group.totalBytes)}`;
+    const bytesPart =
+      group.myBytes !== undefined
+        ? `${formatBytes(group.totalBytes)} (${formatBytes(group.myBytes)} yours)`
+        : formatBytes(group.totalBytes);
+    return `${counts.join(', ')} · ${bytesPart}`;
   });
 
   $effect(() => {

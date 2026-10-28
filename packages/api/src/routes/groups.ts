@@ -31,16 +31,29 @@ async function coverThumbnailUrls(mediaIds: string[]): Promise<Record<string, st
 }
 
 /** Photo/video counts and total storage used by a group's media (excludes quarantined). */
-async function groupStats(groupId: string) {
-  const rows = await getDb()
-    .select({
-      kind: media.kind,
-      count: sql<number>`count(*)`,
-      bytes: sql<number>`coalesce(sum(${media.sizeBytes}), 0)`,
-    })
-    .from(media)
-    .where(and(eq(media.groupId, groupId), ne(media.state, 'quarantined')))
-    .groupBy(media.kind);
+async function groupStats(groupId: string, userId: string) {
+  const db = getDb();
+  const [rows, [mine]] = await Promise.all([
+    db
+      .select({
+        kind: media.kind,
+        count: sql<number>`count(*)`,
+        bytes: sql<number>`coalesce(sum(${media.sizeBytes}), 0)`,
+      })
+      .from(media)
+      .where(and(eq(media.groupId, groupId), ne(media.state, 'quarantined')))
+      .groupBy(media.kind),
+    db
+      .select({ bytes: sql<number>`coalesce(sum(${media.sizeBytes}), 0)` })
+      .from(media)
+      .where(
+        and(
+          eq(media.groupId, groupId),
+          eq(media.uploaderId, userId),
+          ne(media.state, 'quarantined'),
+        ),
+      ),
+  ]);
 
   let photoCount = 0;
   let videoCount = 0;
@@ -50,7 +63,13 @@ async function groupStats(groupId: string) {
     if (r.kind === 'video') videoCount += Number(r.count);
     else photoCount += Number(r.count);
   }
-  return { mediaCount: photoCount + videoCount, photoCount, videoCount, totalBytes };
+  return {
+    mediaCount: photoCount + videoCount,
+    photoCount,
+    videoCount,
+    totalBytes,
+    myBytes: Number(mine?.bytes ?? 0),
+  };
 }
 
 export default async function groupsRoutes(app: FastifyInstance) {
@@ -107,7 +126,7 @@ export default async function groupsRoutes(app: FastifyInstance) {
     if (!group) throw notFound('Group not found');
     const [covers, stats] = await Promise.all([
       coverThumbnailUrls([group.coverMediaId ?? '']),
-      groupStats(req.params.id),
+      groupStats(req.params.id, me.id),
     ]);
     return {
       group: {

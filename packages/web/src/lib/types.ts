@@ -15,6 +15,8 @@ export interface Group {
   photoCount: number;
   videoCount: number;
   totalBytes: number;
+  /** Only present on the group detail endpoint, not the groups list. */
+  myBytes?: number;
 }
 
 export interface MediaItem {
