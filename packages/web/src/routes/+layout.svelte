@@ -179,8 +179,8 @@
     padding: 5px 14px 5px 6px;
     margin-left: 4px;
     border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--accent-soft);
+    border: 1px solid var(--border-strong);
   }
   .account-name {
     font-family: var(--font-body);
