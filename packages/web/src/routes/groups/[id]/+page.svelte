@@ -567,11 +567,6 @@
           </button>
           {#if showDownloadAllMenu}
             <div
-              class="menu-backdrop"
-              onclick={() => (showDownloadAllMenu = false)}
-              transition:fade={{ duration: 120 }}
-            ></div>
-            <div
               class="download-menu"
               onclick={(e) => e.stopPropagation()}
               transition:scale={{ duration: 150, start: 0.96 }}
@@ -679,11 +674,6 @@
         {downloading ? 'Downloading…' : 'Download'}
       </button>
       {#if showDownloadMenu}
-        <div
-          class="menu-backdrop"
-          onclick={() => (showDownloadMenu = false)}
-          transition:fade={{ duration: 120 }}
-        ></div>
         <div
           class="download-menu"
           onclick={(e) => e.stopPropagation()}
@@ -1095,14 +1085,6 @@
   .download-wrap {
     position: relative;
   }
-  .menu-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-    background: rgb(0 0 0 / 0.15);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-  }
   .download-menu {
     position: absolute;
     right: 0;
@@ -1111,8 +1093,9 @@
     min-width: 220px;
     padding: 6px;
     border-radius: var(--radius-sm);
-    background: var(--surface-1);
+    background: var(--surface-strong);
     backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--border);
     box-shadow: 0 16px 36px -14px hsl(var(--shadow-color) / 0.5);
   }
