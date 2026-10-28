@@ -623,7 +623,7 @@
     transition: background-color var(--dur-fast) ease;
   }
   .context-item:hover {
-    background: var(--surface-2);
+    background: var(--accent-soft);
   }
   .meta dl {
     display: grid;

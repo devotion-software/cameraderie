@@ -213,7 +213,7 @@
       color var(--dur-fast) ease;
   }
   .dropdown-option.active {
-    background: var(--surface-2);
+    background: var(--accent-soft);
   }
   .dropdown-option.selected {
     color: var(--accent);

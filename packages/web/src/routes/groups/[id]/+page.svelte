@@ -1301,7 +1301,7 @@
       color var(--dur-fast) ease;
   }
   .context-item:not(.disabled):hover {
-    background: var(--surface-2);
+    background: var(--accent-soft);
   }
   .context-item.disabled {
     color: var(--text-dim);
