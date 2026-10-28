@@ -72,6 +72,7 @@
           <span class="muted">{m.email}</span>
         </div>
         <span class="badge">{m.role}</span>
+        <span class="muted photos">{m.photoCount} photo{m.photoCount === 1 ? '' : 's'}</span>
         <span class="muted joined">joined {formatDate(m.joinedAt)}</span>
         {#if amOwner && m.role !== 'owner' && m.userId !== $session.data?.user?.id}
           <button class="btn danger" onclick={() => remove(m.userId)}>Remove</button>
@@ -100,6 +101,7 @@
   .who .muted {
     font-size: 13px;
   }
+  .photos,
   .joined {
     font-size: 12px;
   }

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { derivatives, groups, media, memberships, user } from '@cameraderie/db';
 import { createGroupBody, setGroupCoverBody } from '@cameraderie/shared';
 import { getDb } from '../db.js';
@@ -28,6 +28,29 @@ async function coverThumbnailUrls(mediaIds: string[]): Promise<Record<string, st
     rows.map(async (r) => [r.mediaId, await presignGet(r.objectKey)] as const),
   );
   return Object.fromEntries(entries);
+}
+
+/** Photo/video counts and total storage used by a group's media (excludes quarantined). */
+async function groupStats(groupId: string) {
+  const rows = await getDb()
+    .select({
+      kind: media.kind,
+      count: sql<number>`count(*)`,
+      bytes: sql<number>`coalesce(sum(${media.sizeBytes}), 0)`,
+    })
+    .from(media)
+    .where(and(eq(media.groupId, groupId), ne(media.state, 'quarantined')))
+    .groupBy(media.kind);
+
+  let photoCount = 0;
+  let videoCount = 0;
+  let totalBytes = 0;
+  for (const r of rows) {
+    totalBytes += Number(r.bytes);
+    if (r.kind === 'video') videoCount += Number(r.count);
+    else photoCount += Number(r.count);
+  }
+  return { mediaCount: photoCount + videoCount, photoCount, videoCount, totalBytes };
 }
 
 export default async function groupsRoutes(app: FastifyInstance) {
@@ -82,12 +105,16 @@ export default async function groupsRoutes(app: FastifyInstance) {
     const membership = await requireMembership(req.params.id, me.id);
     const [group] = await db.select().from(groups).where(eq(groups.id, req.params.id)).limit(1);
     if (!group) throw notFound('Group not found');
-    const covers = await coverThumbnailUrls([group.coverMediaId ?? '']);
+    const [covers, stats] = await Promise.all([
+      coverThumbnailUrls([group.coverMediaId ?? '']),
+      groupStats(req.params.id),
+    ]);
     return {
       group: {
         ...group,
         myRole: membership.role,
         coverThumbnailUrl: group.coverMediaId ? (covers[group.coverMediaId] ?? null) : null,
+        ...stats,
       },
     };
   });
@@ -134,11 +161,26 @@ export default async function groupsRoutes(app: FastifyInstance) {
       .from(memberships)
       .innerJoin(user, eq(user.id, memberships.userId))
       .where(eq(memberships.groupId, req.params.id));
-    const avatars = await avatarUrlsFor(rows);
+    const [avatars, counts] = await Promise.all([
+      avatarUrlsFor(rows),
+      db
+        .select({ uploaderId: media.uploaderId, count: sql<number>`count(*)` })
+        .from(media)
+        .where(
+          and(
+            eq(media.groupId, req.params.id),
+            ne(media.state, 'quarantined'),
+            ne(media.kind, 'video'),
+          ),
+        )
+        .groupBy(media.uploaderId),
+    ]);
+    const photoCounts = Object.fromEntries(counts.map((c) => [c.uploaderId, Number(c.count)]));
     return {
       members: rows.map(({ avatarObjectKey, ...m }) => ({
         ...m,
         avatarUrl: avatars[m.userId] ?? null,
+        photoCount: photoCounts[m.userId] ?? 0,
       })),
     };
   });

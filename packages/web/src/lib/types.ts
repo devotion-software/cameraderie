@@ -9,6 +9,10 @@ export interface Group {
   coverThumbnailUrl: string | null;
   createdAt: string;
   myRole?: 'owner' | 'admin' | 'member';
+  mediaCount: number;
+  photoCount: number;
+  videoCount: number;
+  totalBytes: number;
 }
 
 export interface MediaItem {
@@ -39,6 +43,7 @@ export interface Member {
   email: string;
   image: string | null;
   avatarUrl: string | null;
+  photoCount: number;
 }
 
 export interface Profile {

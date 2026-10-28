@@ -4,7 +4,7 @@
   import { useSession } from '$lib/auth';
   import { api } from '$lib/api';
   import { uploadFile } from '$lib/upload';
-  import { formatDuration } from '$lib/format';
+  import { formatBytes, formatDuration } from '$lib/format';
   import { downloadOne, requestZip, QUALITY_OPTIONS } from '$lib/download';
   import type { Group, MediaItem } from '$lib/types';
   import type { DownloadQuality } from '@cameraderie/shared';
@@ -30,6 +30,15 @@
     error?: string;
   }
   let uploads = $state<UploadTask[]>([]);
+
+  const statsLine = $derived.by(() => {
+    if (!group) return '';
+    const parts = [
+      `${group.photoCount} photo${group.photoCount === 1 ? '' : 's'}`,
+      `${group.videoCount} video${group.videoCount === 1 ? '' : 's'}`,
+    ];
+    return `${parts.join(', ')} · ${formatBytes(group.totalBytes)}`;
+  });
 
   $effect(() => {
     if ($session.isPending) return;
@@ -331,6 +340,7 @@
       <a href="/groups" class="back"><span class="arrow">←</span> Groups</a>
       <h1>{group.name}</h1>
       {#if group.description}<p class="muted">{group.description}</p>{/if}
+      <p class="muted stats">{statsLine}</p>
     </div>
     <span class="spacer"></span>
     <div class="actions">
@@ -545,6 +555,9 @@
   }
   .head h1 {
     margin: 4px 0 0;
+  }
+  .stats {
+    font-size: 13px;
   }
   .actions {
     display: flex;
