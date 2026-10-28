@@ -220,13 +220,17 @@ async function processImageOrRaw(
   return processImage(row, originalPath, workdir, keepMetadata);
 }
 
+// sharp's bundled libheif can read a HEIC/HEIF container's metadata but has
+// no HEVC decoding plugin (unlicensed codec, omitted from the prebuilt
+// binary), so a pixel decode always fails on the actual iPhone-shot photos
+// that use that codec. Skip straight to ffmpeg for these instead of paying
+// for a sharp decode attempt that's guaranteed to fail.
+const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
+
 /**
  * Image derivative generation, best source first:
- *   1. sharp/libvips directly.
- *   2. ffmpeg — decodes the frame itself. Needed for HEIC: sharp's bundled
- *      libheif can read the container's metadata but has no HEVC decoding
- *      plugin (unlicensed codec, omitted from the prebuilt binary), so it
- *      fails on the actual iPhone-shot HEIC photos that use that codec.
+ *   1. sharp/libvips directly (skipped for HEIC/HEIF — see above).
+ *   2. ffmpeg — decodes the frame itself.
  * The original is never modified; if both fail the media still becomes
  * 'ready' (sans derivatives) so it appears in the feed.
  */
@@ -236,16 +240,18 @@ async function processImage(
   workdir: string,
   keepMetadata: boolean,
 ): Promise<Dims> {
-  try {
-    const { width, height } = await makeImageDerivatives(
-      originalPath,
-      row.id,
-      row.kind,
-      keepMetadata,
-    );
-    return { width, height, durationMs: null };
-  } catch (err) {
-    console.warn(`[worker] sharp failed on image ${row.id}, trying ffmpeg frame extraction`, err);
+  if (!HEIC_EXTENSIONS.has(extensionOf(row.filename))) {
+    try {
+      const { width, height } = await makeImageDerivatives(
+        originalPath,
+        row.id,
+        row.kind,
+        keepMetadata,
+      );
+      return { width, height, durationMs: null };
+    } catch (err) {
+      console.warn(`[worker] sharp failed on image ${row.id}, trying ffmpeg frame extraction`, err);
+    }
   }
 
   try {
