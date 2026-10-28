@@ -308,6 +308,7 @@
       <span class="chev">›</span>
     </a>
   </div>
+  <p class="app-version muted small">Cameraderie v{__APP_VERSION__}</p>
 </section>
 
 <section class="card danger-zone">
@@ -369,6 +370,9 @@
   .small {
     font-size: 13px;
     margin-bottom: 0;
+  }
+  .app-version {
+    margin-top: 12px;
   }
   .passkey-list {
     list-style: none;

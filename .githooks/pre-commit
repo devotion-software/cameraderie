@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Prompts to bump package.json version when committing on main, folding the
+# bump into the commit that's already being made.
+set -e
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [ "$branch" != "main" ]; then
+	exit 0
+fi
+
+if [ ! -t 1 ] || [ ! -e /dev/tty ]; then
+	exit 0
+fi
+
+current_version=$(node -p "require('./package.json').version")
+echo "Committing to main (current version: $current_version)." > /dev/tty
+echo "Bump version? [p]atch / [m]inor / [M]ajor / [n]one (default: n): " > /dev/tty
+read -r choice < /dev/tty
+
+case "$choice" in
+	p|P) bump=patch ;;
+	m) bump=minor ;;
+	M) bump=major ;;
+	*) exit 0 ;;
+esac
+
+new_version=$(node -e "
+const fs = require('fs');
+const pkg = require('./package.json');
+const [major, minor, patch] = pkg.version.split('.').map(Number);
+const bump = process.argv[1];
+let next;
+if (bump === 'major') next = [major + 1, 0, 0];
+else if (bump === 'minor') next = [major, minor + 1, 0];
+else next = [major, minor, patch + 1];
+pkg.version = next.join('.');
+fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+console.log(pkg.version);
+" "$bump")
+
+git add package.json
+
+echo "Bumped version to $new_version (included in this commit)." > /dev/tty

@@ -1,6 +1,6 @@
 {
   "name": "cameraderie",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Private groups for sharing full-fidelity, zero-data-loss photos and videos.",
   "type": "module",
@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "bun run --filter='@cameraderie/shared' build && bun run --filter='@cameraderie/db' build && bun run --filter='@cameraderie/api' build && bun run --filter='@cameraderie/worker' build && bun run --filter='@cameraderie/web' build",
     "typecheck": "bun run --filter='*' typecheck",
     "dev:api": "bun run --filter='@cameraderie/api' dev",
