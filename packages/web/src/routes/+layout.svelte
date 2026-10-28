@@ -49,7 +49,6 @@
 <header class="topbar">
   <div class="topbar-inner glass">
     <a class="brand" href="/">
-      <span class="brand-mark">📷</span>
       <span class="brand-word">Cameraderie</span>
     </a>
     <div class="spacer"></div>
@@ -128,9 +127,6 @@
   }
   .brand:hover {
     text-decoration: none;
-  }
-  .brand-mark {
-    font-size: 1.15rem;
   }
   .brand-word {
     font-family: var(--font-display);
