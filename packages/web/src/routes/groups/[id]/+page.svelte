@@ -18,10 +18,6 @@
   let loading = $state(true);
   let error = $state('');
 
-  let inviteUrl = $state('');
-  let showInvite = $state(false);
-  let inviteEmail = $state('');
-  let invitingBusy = $state(false);
   let fileInput = $state<HTMLInputElement>();
 
   interface UploadTask {
@@ -113,30 +109,7 @@
     }, 1500);
   }
 
-  async function createInvite(e: SubmitEvent) {
-    e.preventDefault();
-    invitingBusy = true;
-    error = '';
-    try {
-      const res = await api.post<{ invite: { code: string } }>(`/groups/${groupId}/invites`, {
-        email: inviteEmail.trim() || undefined,
-      });
-      inviteUrl = `${location.origin}/invite/${res.invite.code}`;
-      inviteEmail = '';
-      showInvite = false;
-      await navigator.clipboard?.writeText(inviteUrl).catch(() => {});
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to create invite';
-    } finally {
-      invitingBusy = false;
-    }
-  }
-
   const amGroupAdmin = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
-  const canInvite = $derived.by(() => {
-    const u = $session.data?.user as { role?: string; canInviteMembers?: boolean } | undefined;
-    return amGroupAdmin && !!u && (u.role === 'admin' || u.canInviteMembers === true);
-  });
   const canManageCover = $derived(amGroupAdmin);
 
   let settingCover = $state<string | null>(null);
@@ -345,9 +318,6 @@
     <span class="spacer"></span>
     <div class="actions">
       <a class="btn secondary" href="/groups/{groupId}/members">Members</a>
-      {#if canInvite && !showInvite}
-        <button class="btn secondary" onclick={() => (showInvite = true)}>Invite</button>
-      {/if}
       {#if items.length > 0}
         <button class="btn secondary" onclick={toggleSelectMode}>
           {selectMode ? 'Cancel' : 'Select'}
@@ -385,35 +355,6 @@
       />
     </div>
   </div>
-
-  {#if showInvite}
-    <form class="card invite-form" onsubmit={createInvite}>
-      <input
-        class="input"
-        type="email"
-        placeholder="Email to invite (optional — leave blank for a shareable link)"
-        bind:value={inviteEmail}
-      />
-      <button class="btn" type="submit" disabled={invitingBusy}>
-        {invitingBusy ? 'Creating…' : 'Create invite'}
-      </button>
-      <button
-        class="btn ghost"
-        type="button"
-        onclick={() => (showInvite = false)}
-        disabled={invitingBusy}
-      >
-        Cancel
-      </button>
-    </form>
-  {/if}
-
-  {#if inviteUrl}
-    <div class="card invite">
-      <span class="muted">Invite link (copied):</span>
-      <code>{inviteUrl}</code>
-    </div>
-  {/if}
 
   {#if uploads.length}
     <div class="card uploads">
@@ -563,26 +504,6 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-  }
-  .invite {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 16px;
-    padding: 12px 16px;
-  }
-  .invite-form {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-    padding: 14px 16px;
-  }
-  .invite-form .input {
-    flex: 1;
-  }
-  .invite code {
-    color: var(--accent);
-    word-break: break-all;
   }
   .uploads {
     margin-bottom: 16px;

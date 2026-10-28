@@ -15,6 +15,11 @@
   let error = $state('');
   let loading = $state(true);
 
+  let inviteUrl = $state('');
+  let showInvite = $state(false);
+  let inviteEmail = $state('');
+  let invitingBusy = $state(false);
+
   $effect(() => {
     if ($session.isPending) return;
     if (!$session.data?.user) {
@@ -41,6 +46,30 @@
   }
 
   const amOwner = $derived(group?.myRole === 'owner');
+  const amGroupAdmin = $derived(group?.myRole === 'owner' || group?.myRole === 'admin');
+  const canInvite = $derived.by(() => {
+    const u = $session.data?.user as { role?: string; canInviteMembers?: boolean } | undefined;
+    return amGroupAdmin && !!u && (u.role === 'admin' || u.canInviteMembers === true);
+  });
+
+  async function createInvite(e: SubmitEvent) {
+    e.preventDefault();
+    invitingBusy = true;
+    error = '';
+    try {
+      const res = await api.post<{ invite: { code: string } }>(`/groups/${groupId}/invites`, {
+        email: inviteEmail.trim() || undefined,
+      });
+      inviteUrl = `${location.origin}/invite/${res.invite.code}`;
+      inviteEmail = '';
+      showInvite = false;
+      await navigator.clipboard?.writeText(inviteUrl).catch(() => {});
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to create invite';
+    } finally {
+      invitingBusy = false;
+    }
+  }
 
   async function remove(userId: string) {
     if (!confirm('Remove this member?')) return;
@@ -54,8 +83,45 @@
 </script>
 
 {#if group}
-  <a href="/groups/{groupId}" class="back"><span class="arrow">←</span> {group.name}</a>
-  <h1>Members</h1>
+  <div class="head">
+    <div>
+      <a href="/groups/{groupId}" class="back"><span class="arrow">←</span> {group.name}</a>
+      <h1>Members</h1>
+    </div>
+    <span class="spacer"></span>
+    {#if canInvite && !showInvite}
+      <button class="btn secondary" onclick={() => (showInvite = true)}>Invite</button>
+    {/if}
+  </div>
+{/if}
+
+{#if showInvite}
+  <form class="card invite-form" onsubmit={createInvite}>
+    <input
+      class="input"
+      type="email"
+      placeholder="Email to invite (optional — leave blank for a shareable link)"
+      bind:value={inviteEmail}
+    />
+    <button class="btn" type="submit" disabled={invitingBusy}>
+      {invitingBusy ? 'Creating…' : 'Create invite'}
+    </button>
+    <button
+      class="btn ghost"
+      type="button"
+      onclick={() => (showInvite = false)}
+      disabled={invitingBusy}
+    >
+      Cancel
+    </button>
+  </form>
+{/if}
+
+{#if inviteUrl}
+  <div class="card invite">
+    <span class="muted">Invite link (copied):</span>
+    <code>{inviteUrl}</code>
+  </div>
 {/if}
 
 {#if error}<p class="error">{error}</p>{/if}
@@ -83,6 +149,33 @@
 {/if}
 
 <style>
+  .head {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .invite {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+  }
+  .invite-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+  }
+  .invite-form .input {
+    flex: 1;
+  }
+  .invite code {
+    color: var(--accent);
+    word-break: break-all;
+  }
   .list {
     display: flex;
     flex-direction: column;
