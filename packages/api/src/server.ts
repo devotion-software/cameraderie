@@ -118,9 +118,19 @@ export async function buildServer(): Promise<FastifyInstance> {
     if (req.method === 'GET' && req.url === '/me') return;
     if (req.url === '/me/accept-terms') return;
     const result = await auth.api.getSession({ headers: toWebHeaders(req) }).catch(() => null);
-    const acceptedTermsAt = (result?.user as { acceptedTermsAt?: unknown } | undefined)
-      ?.acceptedTermsAt;
-    if (result?.user && !acceptedTermsAt) {
+    const sessionUser = result?.user as
+      | { acceptedTermsAt?: unknown; disabledAt?: unknown }
+      | undefined;
+    // An admin-disabled account is blocked everywhere, including /me — it
+    // can still hit /api/auth/sign-out to clear its session client-side.
+    if (sessionUser && sessionUser.disabledAt) {
+      reply.code(403).send({
+        error: 'account_disabled',
+        message: 'This account has been disabled.',
+      });
+      return;
+    }
+    if (result?.user && !sessionUser?.acceptedTermsAt) {
       reply.code(403).send({
         error: 'terms_required',
         message: 'Please confirm you are 18+ and accept the Terms and Privacy Policy to continue.',

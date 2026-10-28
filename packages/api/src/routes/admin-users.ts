@@ -16,26 +16,26 @@ import { badRequest, notFound } from '../errors.js';
 export default async function adminUsersRoutes(app: FastifyInstance) {
   const db = getDb();
 
+  const adminUserColumns = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    canCreateGroups: user.canCreateGroups,
+    canInviteMembers: user.canInviteMembers,
+    disabledAt: user.disabledAt,
+    createdAt: user.createdAt,
+  };
+
   app.get('/admin/users', async (req) => {
     await requireAdmin(req);
-    const rows = await db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        canCreateGroups: user.canCreateGroups,
-        canInviteMembers: user.canInviteMembers,
-        createdAt: user.createdAt,
-      })
-      .from(user)
-      .orderBy(desc(user.createdAt));
+    const rows = await db.select(adminUserColumns).from(user).orderBy(desc(user.createdAt));
     return { users: rows };
   });
 
   app.patch<{ Params: { id: string } }>('/admin/users/:id', async (req) => {
     const admin = await requireAdmin(req);
-    const body = parse(updateUserPermissionsBody, req.body ?? {});
+    const { disabled, ...body } = parse(updateUserPermissionsBody, req.body ?? {});
     const [target] = await db.select().from(user).where(eq(user.id, req.params.id)).limit(1);
     if (!target) throw notFound('User not found');
     if (target.id === admin.id && body.role === 'user') {
@@ -43,17 +43,14 @@ export default async function adminUsersRoutes(app: FastifyInstance) {
       // themselves out of the admin role — that could leave the app with no admin.
       throw badRequest('You cannot remove your own admin role');
     }
-    await db.update(user).set(body).where(eq(user.id, req.params.id));
+    if (target.id === admin.id && disabled) {
+      throw badRequest('You cannot disable your own account');
+    }
+    const patch: Partial<typeof user.$inferInsert> = { ...body };
+    if (disabled !== undefined) patch.disabledAt = disabled ? new Date() : null;
+    await db.update(user).set(patch).where(eq(user.id, req.params.id));
     const [updated] = await db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        canCreateGroups: user.canCreateGroups,
-        canInviteMembers: user.canInviteMembers,
-        createdAt: user.createdAt,
-      })
+      .select(adminUserColumns)
       .from(user)
       .where(eq(user.id, req.params.id))
       .limit(1);

@@ -38,7 +38,14 @@
     }
   }
 
-  async function update(id: string, patch: Partial<AdminUser>) {
+  interface UserPatch {
+    role?: 'user' | 'admin';
+    canCreateGroups?: boolean;
+    canInviteMembers?: boolean;
+    disabled?: boolean;
+  }
+
+  async function update(id: string, patch: UserPatch) {
     savingId = id;
     error = '';
     try {
@@ -53,6 +60,14 @@
 
   function toggleRole(u: AdminUser) {
     void update(u.id, { role: u.role === 'admin' ? 'user' : 'admin' });
+  }
+
+  function toggleDisabled(u: AdminUser) {
+    const next = !u.disabledAt;
+    if (next && !confirm(`Deactivate ${u.name}? They won't be able to sign in or use the app.`)) {
+      return;
+    }
+    void update(u.id, { disabled: next });
   }
 </script>
 
@@ -71,6 +86,7 @@
       <div class="card user">
         <div class="who">
           <strong>{u.name}</strong>
+          {#if u.disabledAt}<span class="badge disabled">Deactivated</span>{/if}
           <span class="muted">{u.email}</span>
           <span class="muted small">joined {formatDate(u.createdAt)}</span>
         </div>
@@ -103,12 +119,24 @@
           />
           <span>Can invite members</span>
         </label>
+        <button
+          class="btn danger"
+          disabled={savingId === u.id || u.role === 'admin'}
+          onclick={() => toggleDisabled(u)}
+        >
+          {u.disabledAt ? 'Reactivate' : 'Deactivate'}
+        </button>
       </div>
     {/each}
   </div>
 {/if}
 
 <style>
+  .who .badge.disabled {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    align-self: flex-start;
+  }
   .list {
     display: flex;
     flex-direction: column;

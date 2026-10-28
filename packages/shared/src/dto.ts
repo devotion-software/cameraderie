@@ -166,5 +166,6 @@ export const updateUserPermissionsBody = z.object({
   role: z.enum(['user', 'admin']).optional(),
   canCreateGroups: z.boolean().optional(),
   canInviteMembers: z.boolean().optional(),
+  disabled: z.boolean().optional(),
 });
 export type UpdateUserPermissionsBody = z.infer<typeof updateUserPermissionsBody>;

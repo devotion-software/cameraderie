@@ -46,6 +46,8 @@ export const user = mysqlTable('user', {
   canCreateGroups: boolean('can_create_groups').notNull().default(false),
   /** Permission: may invite new members to a group they admin. Site admins bypass this check. */
   canInviteMembers: boolean('can_invite_members').notNull().default(false),
+  /** Set by an admin to block sign-in, viewing, uploading, and downloading. Null = active. */
+  disabledAt: timestamp('disabled_at'),
   /**
    * When the user confirmed they are 18+ and accepted the Terms + Privacy Policy
    * at sign-up. Null for accounts created before this gate existed. Kept as a

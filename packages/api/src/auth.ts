@@ -130,6 +130,8 @@ export const auth = betterAuth({
       role: { type: 'string', required: false, input: false, defaultValue: 'user' },
       canCreateGroups: { type: 'boolean', required: false, input: false, defaultValue: false },
       canInviteMembers: { type: 'boolean', required: false, input: false, defaultValue: false },
+      // Set by an admin (Admin → Users) to block sign-in/view/upload/download.
+      disabledAt: { type: 'date', required: false, input: false },
       // Set once, via POST /me/accept-terms, right after the user's first
       // sign-in. Never accepted as sign-up/sign-in input.
       acceptedTermsAt: { type: 'date', required: false, input: false },

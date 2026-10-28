@@ -71,5 +71,6 @@ export interface AdminUser {
   role: 'user' | 'admin';
   canCreateGroups: boolean;
   canInviteMembers: boolean;
+  disabledAt: string | null;
   createdAt: string;
 }
