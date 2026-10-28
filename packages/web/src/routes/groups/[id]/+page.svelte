@@ -124,6 +124,7 @@
     );
     items = res.media;
     nextCursor = res.nextCursor;
+    saveFeedOrder();
   }
 
   async function loadMore() {
@@ -133,6 +134,22 @@
     );
     items = [...items, ...res.media];
     nextCursor = res.nextCursor;
+    saveFeedOrder();
+  }
+
+  // The media detail page needs to know prev/next in the currently viewed
+  // order to support arrow-key navigation there. There's no "siblings"
+  // endpoint, so stash the ordered id list the grid is showing right now —
+  // the detail page reads it back by group id when it wants to step.
+  const FEED_ORDER_KEY = `cameraderie:feedOrder:${groupId}`;
+  function saveFeedOrder() {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.setItem(FEED_ORDER_KEY, JSON.stringify(items.map((m) => m.id)));
+    } catch {
+      // sessionStorage can throw in private-browsing edge cases; navigation
+      // still works, it just loses prev/next on the detail page.
+    }
   }
 
   async function onFilterChange() {
@@ -207,8 +224,6 @@
     contextMenu ? (items.find((i) => i.id === contextMenu!.mediaId) ?? null) : null,
   );
   function onTileContextMenu(mediaId: string, e: MouseEvent) {
-    const m = items.find((i) => i.id === mediaId);
-    if (!canManageCover && !(m && canDeleteMedia(m))) return;
     e.preventDefault();
     contextMenu = { x: e.clientX, y: e.clientY, mediaId };
   }
@@ -289,10 +304,21 @@
       toggleSelected(mediaId, e);
       return;
     }
-    // Let modifier-clicks / middle-click behave normally (open in new tab etc).
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    e.preventDefault();
-    lightboxIndex = index;
+    // Alt/Option-click opens the full-screen lightbox instead of navigating
+    // to the photo page. Everything else (plain click, cmd/ctrl/shift-click,
+    // middle-click) behaves like a normal link.
+    if (e.altKey && !e.metaKey && !e.ctrlKey && e.button === 0) {
+      e.preventDefault();
+      lightboxIndex = index;
+    }
+  }
+
+  function openLightboxFromMenu() {
+    const mediaId = contextMenu?.mediaId;
+    closeContextMenu();
+    if (!mediaId) return;
+    const index = items.findIndex((i) => i.id === mediaId);
+    if (index !== -1) lightboxIndex = index;
   }
 
   function closeLightbox() {
@@ -691,6 +717,7 @@
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
     onclick={(e) => e.stopPropagation()}
   >
+    <button class="context-item" onclick={openLightboxFromMenu}>⛶ Open fullscreen</button>
     {#if canManageCover}
       {#if group?.coverMediaId === contextMenu.mediaId}
         <span class="context-item disabled">★ Current group cover</span>

@@ -75,6 +75,40 @@
     void load();
   });
 
+  // Prev/next within whatever order the group grid was last showing. The
+  // grid stashes its current id order in sessionStorage (there's no
+  // siblings endpoint), so arrow-key nav here just reads that back; if it's
+  // missing (e.g. a direct link) prev/next simply aren't available.
+  let siblingIds = $state<string[]>([]);
+  const siblingIndex = $derived(item ? siblingIds.indexOf(item.id) : -1);
+  const prevId = $derived(siblingIndex > 0 ? siblingIds[siblingIndex - 1] : null);
+  const nextId = $derived(
+    siblingIndex !== -1 && siblingIndex < siblingIds.length - 1
+      ? siblingIds[siblingIndex + 1]
+      : null,
+  );
+
+  function loadSiblingIds(groupId: string) {
+    siblingIds = [];
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(`cameraderie:feedOrder:${groupId}`);
+      if (raw) siblingIds = JSON.parse(raw);
+    } catch {
+      siblingIds = [];
+    }
+  }
+
+  function goToSibling(id: string | null) {
+    if (!id) return;
+    void goto(`/media/${id}`);
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft') goToSibling(prevId);
+    else if (e.key === 'ArrowRight') goToSibling(nextId);
+  }
+
   async function load() {
     loading = true;
     mediaLoaded = false;
@@ -83,6 +117,7 @@
       item = res.media;
       const g = await api.get<{ group: Group }>(`/groups/${item.groupId}`);
       group = g.group;
+      loadSiblingIds(item.groupId);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load';
     } finally {
@@ -156,7 +191,10 @@
 
 <svelte:window
   onclick={() => (showDownloadMenu = false)}
-  onkeydown={(e) => e.key === 'Escape' && (showDownloadMenu = false)}
+  onkeydown={(e) => {
+    if (e.key === 'Escape') showDownloadMenu = false;
+    onKeydown(e);
+  }}
 />
 
 {#if error}<p class="error">{error}</p>{/if}
@@ -172,6 +210,24 @@
     style:width={item.kind !== 'video' ? stageWidth : undefined}
     style:aspect-ratio={item.kind !== 'video' && stageRatio ? stageRatio : undefined}
   >
+    {#if prevId}
+      <button
+        class="stage-nav prev"
+        onclick={() => goToSibling(prevId)}
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+    {/if}
+    {#if nextId}
+      <button
+        class="stage-nav next"
+        onclick={() => goToSibling(nextId)}
+        aria-label="Next"
+      >
+        ›
+      </button>
+    {/if}
     {#if item.state === 'ready' && item.previewUrl}
       {#if !mediaLoaded}
         <div class="stage-loader"><span class="spinner"></span></div>
@@ -331,6 +387,30 @@
   .stage img.hidden,
   .stage video.hidden {
     display: none;
+  }
+  .stage-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgb(255 255 255 / 0.15);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .stage-nav:hover {
+    background: rgb(255 255 255 / 0.28);
+  }
+  .stage-nav.prev {
+    left: 12px;
+  }
+  .stage-nav.next {
+    right: 12px;
   }
   .stage-loader {
     position: absolute;
